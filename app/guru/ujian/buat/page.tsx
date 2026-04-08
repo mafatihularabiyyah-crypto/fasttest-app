@@ -5,12 +5,16 @@ import Link from "next/link";
 import { 
   ArrowLeft, DownloadSimple, FilePdf, SlidersHorizontal, 
   TextAUnderline, Hash, CheckCircle, Scan, Trash, Plus, 
-  IdentificationBadge, ImageSquare, FloppyDisk
+  IdentificationBadge, ImageSquare, FloppyDisk, NotePencil,
+  FileText, Copy, GridFour, Wrench
 } from "@phosphor-icons/react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 export default function LJKGeneratorFinal() {
+  // --- STATE ALUR HALAMAN ---
+  const [viewState, setViewState] = useState<'select' | 'editor'>('select');
+
   const ljkRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -35,15 +39,29 @@ export default function LJKGeneratorFinal() {
   const [kolom, setKolom] = useState(3);
   const [poinRata, setPoinRata] = useState(2.5);
 
-  // --- 3. STATE ADVANCED (SCANNER & KODE UJIAN UNIK) ---
+  // --- 3. STATE ADVANCED (SCANNER, KODE UJIAN, & ESAI) ---
   const [useAnchor, setUseAnchor] = useState(true);
   const [modeIdentitas, setModeIdentitas] = useState<"nis" | "barcode">("nis");
   const [jumlahDigitNIS, setJumlahDigitNIS] = useState(6);
-  // FITUR: KODE UJIAN (Bukan hanya mapel, tapi ID Ujian)
   const [useKodeUjian, setUseKodeUjian] = useState(true);
   const [jumlahDigitKodeUjian, setJumlahDigitKodeUjian] = useState(3);
+  const [useEsai, setUseEsai] = useState(false);
+  const [tinggiEsaiCM, setTinggiEsaiCM] = useState(8); 
 
   // --- FUNGSI CUSTOM ---
+  const handleSelectTemplate = (type: string) => {
+    if (type === '40_PG') {
+      setJumlahSoal(40); setKolom(3); setUseEsai(false); setJumlahPilihan(5);
+    } else if (type === '30_PG_ESAI') {
+      setJumlahSoal(30); setKolom(3); setUseEsai(true); setTinggiEsaiCM(8); setJumlahPilihan(5);
+    } else if (type === '50_PG') {
+      setJumlahSoal(50); setKolom(4); setUseEsai(false); setJumlahPilihan(5);
+    } else if (type === 'CUSTOM') {
+      // Tidak merubah state default, langsung masuk editor
+    }
+    setViewState('editor');
+  };
+
   const ubahIdentitas = (id: number, val: string) => setIdentitasList(identitasList.map(item => item.id === id ? { ...item, label: val } : item));
   const hapusIdentitas = (id: number) => setIdentitasList(identitasList.filter(item => item.id !== id));
   const tambahIdentitas = () => setIdentitasList([...identitasList, { id: Date.now(), label: "DATA BARU" }]);
@@ -104,14 +122,80 @@ export default function LJKGeneratorFinal() {
   const soalPerKolom = Math.ceil(jumlahSoal / kolom);
   const patternKetebalan = [10, 7, 4, 2];
 
+
+  // =======================================================================
+  // RENDER VIEW 1: MENU PILIH TEMPLATE
+  // =======================================================================
+  if (viewState === 'select') {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] font-sans flex flex-col items-center pt-24 px-6 relative overflow-hidden">
+        {/* Aksen Background */}
+        <div className="absolute top-0 left-0 w-full h-64 bg-blue-700 pointer-events-none rounded-b-[3rem]"></div>
+        
+        <Link href="/guru" className="absolute top-8 left-8 p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-all">
+          <ArrowLeft size={24} weight="bold" />
+        </Link>
+
+        <div className="relative z-10 text-center mb-12">
+          <h1 className="text-4xl font-black text-white tracking-tight mb-3">Pilih Template LJK</h1>
+          <p className="text-blue-100 font-medium max-w-md mx-auto">Gunakan template standar agar LJK Anda bisa langsung dicetak, atau buat desain LJK custom dari nol.</p>
+        </div>
+
+        <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl w-full">
+          
+          {/* Card: 40 PG */}
+          <div onClick={() => handleSelectTemplate('40_PG')} className="bg-white p-6 rounded-3xl shadow-lg border border-slate-200 hover:border-blue-500 hover:-translate-y-2 transition-all cursor-pointer group flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors"><FileText size={32} weight="fill"/></div>
+            <h3 className="font-black text-slate-800 text-lg mb-1">Standar 40 Soal</h3>
+            <p className="text-xs font-bold text-slate-500 mb-4">40 Pilihan Ganda (A-E)<br/>Tanpa Esai</p>
+            <button className="mt-auto w-full py-2 bg-slate-100 text-slate-600 font-bold rounded-xl group-hover:bg-blue-50 group-hover:text-blue-700 transition-colors text-xs uppercase tracking-widest">Pilih Ini</button>
+          </div>
+
+          {/* Card: 30 PG + Esai */}
+          <div onClick={() => handleSelectTemplate('30_PG_ESAI')} className="bg-white p-6 rounded-3xl shadow-lg border border-slate-200 hover:border-emerald-500 hover:-translate-y-2 transition-all cursor-pointer group flex flex-col items-center text-center relative overflow-hidden">
+            <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">Paling Laris</div>
+            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-colors"><NotePencil size={32} weight="fill"/></div>
+            <h3 className="font-black text-slate-800 text-lg mb-1">Kombinasi Esai</h3>
+            <p className="text-xs font-bold text-slate-500 mb-4">30 Pilihan Ganda (A-E)<br/>+ Area Kotak Esai</p>
+            <button className="mt-auto w-full py-2 bg-slate-100 text-slate-600 font-bold rounded-xl group-hover:bg-emerald-50 group-hover:text-emerald-700 transition-colors text-xs uppercase tracking-widest">Pilih Ini</button>
+          </div>
+
+          {/* Card: 50 PG */}
+          <div onClick={() => handleSelectTemplate('50_PG')} className="bg-white p-6 rounded-3xl shadow-lg border border-slate-200 hover:border-indigo-500 hover:-translate-y-2 transition-all cursor-pointer group flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><GridFour size={32} weight="fill"/></div>
+            <h3 className="font-black text-slate-800 text-lg mb-1">Padat 50 Soal</h3>
+            <p className="text-xs font-bold text-slate-500 mb-4">50 Pilihan Ganda (A-E)<br/>Tanpa Esai</p>
+            <button className="mt-auto w-full py-2 bg-slate-100 text-slate-600 font-bold rounded-xl group-hover:bg-indigo-50 group-hover:text-indigo-700 transition-colors text-xs uppercase tracking-widest">Pilih Ini</button>
+          </div>
+
+          {/* Card: Custom */}
+          <div onClick={() => handleSelectTemplate('CUSTOM')} className="bg-slate-800 p-6 rounded-3xl shadow-lg border border-slate-700 hover:border-slate-400 hover:-translate-y-2 transition-all cursor-pointer group flex flex-col items-center text-center">
+            <div className="w-16 h-16 bg-slate-700 text-white rounded-2xl flex items-center justify-center mb-4 group-hover:bg-white group-hover:text-slate-800 transition-colors"><Wrench size={32} weight="fill"/></div>
+            <h3 className="font-black text-white text-lg mb-1">Desain Custom</h3>
+            <p className="text-xs font-medium text-slate-400 mb-4">Atur sendiri jumlah soal, opsi, kolom, dan esai.</p>
+            <button className="mt-auto w-full py-2 bg-slate-700 text-white font-bold rounded-xl group-hover:bg-slate-600 transition-colors text-xs uppercase tracking-widest">Buat Dari Nol</button>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+
+  // =======================================================================
+  // RENDER VIEW 2: EDITOR LJK
+  // =======================================================================
   return (
     <div className="min-h-screen bg-[#f1f5f9] flex overflow-hidden font-sans">
       {/* PANEL KIRI: PENGATURAN */}
       <div className="w-[420px] bg-white border-r border-[#e2e8f0] flex flex-col h-screen overflow-y-auto z-20 shadow-xl scrollbar-hide shrink-0">
         <div className="p-6 bg-blue-700 text-white sticky top-0 z-10 shadow-sm">
-          <div className="flex items-center gap-3 mb-2">
-            <Link href="/guru" className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-all"><ArrowLeft size={18} weight="bold" /></Link>
-            <h1 className="text-lg font-black tracking-tight uppercase">LJK Generator</h1>
+          <div className="flex justify-between items-center mb-2">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setViewState('select')} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-all" title="Kembali Pilih Template"><ArrowLeft size={18} weight="bold" /></button>
+              <h1 className="text-lg font-black tracking-tight uppercase">LJK Editor</h1>
+            </div>
+            <button onClick={() => setViewState('select')} className="text-[10px] font-bold bg-white/10 hover:bg-white/20 px-2 py-1 rounded">Ganti Template</button>
           </div>
           <p className="text-xs text-blue-100 font-medium">Pengaturan Kertas TarbiyahTech</p>
         </div>
@@ -126,7 +210,7 @@ export default function LJKGeneratorFinal() {
                   <button onClick={hapusLogo} className="text-xs font-bold text-red-500 hover:text-red-700 flex-1 text-right">Hapus Logo</button>
                 </div>
               ) : (
-                <label className="flex items-center justify-center gap-2 w-full p-3 border-2 border-dashed border-[#cbd5e1] rounded-xl cursor-pointer hover:bg-slate-50 text-blue-600 font-bold text-xs"><ImageSquare size={18} /> Upload Logo<input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} /></label>
+                <label className="flex items-center justify-center gap-2 w-full p-3 border-2 border-dashed border-[#cbd5e1] rounded-xl cursor-pointer hover:bg-slate-50 text-blue-600 font-bold text-xs"><ImageSquare size={18} /> Upload Logo KOP<input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} /></label>
               )}
             </div>
             <textarea value={kopSurat} onChange={(e) => setKopSurat(e.target.value)} className="w-full p-3 text-xs font-bold border border-[#cbd5e1] rounded-xl outline-none resize-none h-20 uppercase" />
@@ -158,7 +242,7 @@ export default function LJKGeneratorFinal() {
               <button onClick={() => handlePilihTipe("bs")} className={`py-2 text-xs font-bold rounded-xl border ${tipePilihan === 'bs' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>B / S</button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Jumlah Soal</span><input type="number" min="1" value={jumlahSoal} onChange={(e) => setJumlahSoal(Number(e.target.value))} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-bold text-sm outline-none" /></div>
+              <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Jumlah Soal PG</span><input type="number" min="1" value={jumlahSoal} onChange={(e) => setJumlahSoal(Number(e.target.value))} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-bold text-sm outline-none" /></div>
               <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Opsi per Soal</span><input type="number" min="2" max="10" value={jumlahPilihan} onChange={(e) => setJumlahPilihan(Number(e.target.value))} disabled={tipePilihan === 'bs'} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-bold text-sm outline-none disabled:opacity-50" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -167,11 +251,23 @@ export default function LJKGeneratorFinal() {
             </div>
           </div>
 
-          <div className="space-y-3 p-4 border border-[#e2e8f0] rounded-2xl">
+          <div className="space-y-3 p-4 border border-[#e2e8f0] rounded-2xl bg-white">
             <label className="text-[10px] font-black text-[#94a3b8] uppercase tracking-widest flex items-center gap-2"><Hash size={14} /> Fitur Scanner & Area OMR</label>
             <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useAnchor} onChange={(e) => setUseAnchor(e.target.checked)} className="w-4 h-4" /><span className="text-xs font-bold">Corner Anchor & Timing Marks</span></label>
             <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useKodeUjian} onChange={(e) => setUseKodeUjian(e.target.checked)} className="w-4 h-4" /><span className="text-xs font-bold">Arsiran KODE UJIAN</span></label>
             
+            {/* AREA ESAI TOGGLE */}
+            <div className="pt-2 border-t border-[#e2e8f0]">
+              <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useEsai} onChange={(e) => setUseEsai(e.target.checked)} className="w-4 h-4 accent-emerald-600" /><span className="text-xs font-bold text-emerald-700">Gunakan Kotak Jawaban Esai</span></label>
+            </div>
+            
+            {useEsai && (
+              <div className="flex justify-between items-center bg-emerald-50 p-2 rounded-lg border border-emerald-100">
+                <span className="text-xs font-bold text-emerald-700">Tinggi Kotak Esai (cm):</span>
+                <input type="number" min="3" max="20" value={tinggiEsaiCM} onChange={(e) => setTinggiEsaiCM(Number(e.target.value))} className="w-16 text-center border border-emerald-200 rounded font-bold outline-none text-emerald-700" />
+              </div>
+            )}
+
             <div className="pt-2 border-t border-[#e2e8f0]">
               <div className="flex gap-2">
                 <button onClick={() => setModeIdentitas("nis")} className={`flex-1 py-1.5 text-xs font-bold rounded-lg border ${modeIdentitas === 'nis' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-[#cbd5e1]'}`}>Arsiran NIS</button>
@@ -208,10 +304,14 @@ export default function LJKGeneratorFinal() {
       <div className="flex-1 bg-[#cbd5e1] overflow-auto p-8 lg:p-12 flex justify-center scrollbar-hide">
         {isExporting && <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur flex items-center justify-center font-black text-blue-600 animate-pulse text-xl">MEMPROSES DOKUMEN...</div>}
 
-        <div ref={ljkRef} className="shadow-2xl relative box-border bg-white" style={{ width: "210mm", height: "297mm", paddingTop: "15mm", paddingBottom: "15mm", paddingLeft: "25mm", paddingRight: "25mm", color: "#000000" }}>
+        <div ref={ljkRef} className="shadow-2xl relative box-border bg-white flex flex-col" style={{ width: "210mm", height: "297mm", paddingTop: "15mm", paddingBottom: "15mm", paddingLeft: "25mm", paddingRight: "25mm", color: "#000000" }}>
           
+          {/* WATERMARK TARBIYAH TECH (DENGAN LOGO GRAYSCALE) */}
           <div className="absolute right-[6mm] top-0 bottom-0 flex items-center justify-center z-10 w-6">
-            <div style={{ transform: 'rotate(-90deg)', whiteSpace: 'nowrap', opacity: 0.35 }}><p className="text-[12px] font-black tracking-[0.5em] uppercase m-0">PROVIDED BY TARBIYAH TECH</p></div>
+            <div className="flex items-center gap-3" style={{ transform: 'rotate(-90deg)', whiteSpace: 'nowrap', opacity: 0.35 }}>
+              <img src="/Logo Tarbiyah Tech (2).png" alt="Logo" className="h-4 object-contain grayscale brightness-0" />
+              <p className="text-[12px] font-black tracking-[0.5em] uppercase m-0">PROVIDED BY TARBIYAH TECH</p>
+            </div>
           </div>
 
           {useAnchor && (
@@ -229,103 +329,119 @@ export default function LJKGeneratorFinal() {
             </>
           )}
 
-          <div className="flex items-center gap-4 pb-3 mb-6 relative z-10 border-b-4 border-black">
-            <div className="w-[80px] h-[80px] flex items-center justify-center overflow-hidden">{logoUrl && <img src={logoUrl} alt="Logo" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />}</div>
-            <div className="flex-1 text-center">
-              <p className="text-[14px] font-black uppercase whitespace-pre-line leading-tight">{kopSurat}</p>
-              <p className="text-[12px] font-bold mt-2 tracking-[0.2em]">{namaUjian.toUpperCase()}</p>
-            </div>
-            <div className="w-[80px]"></div>
-          </div>
-
-          <div className="flex gap-6 mb-8 relative z-10 items-start">
-            <div className="flex-1 p-4 space-y-4 text-[11px] font-black uppercase border-2 border-black">
-              {identitasList.map((item) => {
-                const isSignature = item.label.toLowerCase().includes("tanda tangan") || item.label.toLowerCase().includes("ttd");
-                return (
-                  <div key={item.id} className="flex gap-2">
-                    <span className="whitespace-nowrap">{item.label}</span><span className="pr-2">:</span>
-                    <div className="flex-1 border-b border-black border-dashed" style={{ height: isSignature ? "32px" : "12px", marginTop: isSignature ? "0" : "2px" }}></div>
-                  </div>
-                );
-              })}
+          {/* CONTAINER UTAMA (Mencegah Overlap dengan Timing Marks) */}
+          <div className="relative z-10 flex flex-col h-full pl-[5mm] pr-[5mm]">
+            
+            <div className="flex items-center gap-4 pb-3 mb-6 border-b-4 border-black shrink-0">
+              <div className="w-[80px] h-[80px] flex items-center justify-center overflow-hidden">{logoUrl && <img src={logoUrl} alt="Logo" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />}</div>
+              <div className="flex-1 text-center">
+                <p className="text-[14px] font-black uppercase whitespace-pre-line leading-tight">{kopSurat}</p>
+                <p className="text-[12px] font-bold mt-2 tracking-[0.2em]">{namaUjian.toUpperCase()}</p>
+              </div>
+              <div className="w-[80px]"></div>
             </div>
 
-            {/* KODE UJIAN BLOK OMR */}
-            {useKodeUjian && (
-              <div className="p-2 flex flex-col items-center border-2 border-black">
-                <p className="text-[9px] font-black mb-2 w-full text-center pb-1 border-b border-black">KODE UJIAN</p>
-                <div className="flex gap-1">
-                  {Array.from({ length: jumlahDigitKodeUjian }).map((_, digitIndex) => (
-                    <div key={digitIndex} className="flex flex-col gap-0.5 items-center">
-                      <div className="w-3.5 h-3.5 mb-1 border-[1.5px] border-black rounded-full"></div>
-                      {Array.from({ length: 10 }).map((_, num) => (
-                        <svg key={num} width="14" height="14" viewBox="0 0 14 14" style={{ display: "block" }}>
-                          <circle cx="7" cy="7" r="6" fill="none" stroke="#000000" strokeWidth="1" />
-                          <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize="7" fontWeight="900" fill="#000000" fontFamily="sans-serif">{num}</text>
-                        </svg>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* AREA NIS / BARCODE */}
-            {modeIdentitas === "nis" ? (
-              <div className="p-2 flex flex-col items-center border-2 border-black">
-                <p className="text-[9px] font-black mb-2 w-full text-center pb-1 border-b border-black">ARSIRAN NIS</p>
-                <div className="flex gap-1">
-                  {Array.from({ length: jumlahDigitNIS }).map((_, digitIndex) => (
-                    <div key={digitIndex} className="flex flex-col gap-0.5 items-center">
-                      <div className="w-3.5 h-3.5 mb-1 border-[1.5px] border-black rounded-full"></div>
-                      {Array.from({ length: 10 }).map((_, num) => (
-                        <svg key={num} width="14" height="14" viewBox="0 0 14 14" style={{ display: "block" }}>
-                          <circle cx="7" cy="7" r="6" fill="none" stroke="#000000" strokeWidth="1" />
-                          <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize="7" fontWeight="900" fill="#000000" fontFamily="sans-serif">{num}</text>
-                        </svg>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-2 text-center relative w-[150px] h-[150px] border-2 border-black border-dashed">
-                <div className="absolute top-0 left-0 w-full text-[10px] font-bold py-0.5 bg-black text-white">AREA BARCODE</div>
-                <Scan size={48} weight="thin" className="text-[#aaaaaa] mt-4" />
-                <p className="text-[9px] font-semibold mt-2 text-[#666666]">Tempel QR/Barcode</p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-between relative z-10" style={{ gap: '20px' }}>
-            {Array.from({ length: kolom }).map((_, colIndex) => (
-              <div key={colIndex} className="flex-1 flex flex-col gap-y-2">
-                {Array.from({ length: soalPerKolom }).map((_, rowIndex) => {
-                  const nomorSoal = rowIndex + 1 + (colIndex * soalPerKolom);
-                  if (nomorSoal > jumlahSoal) return <div key={nomorSoal} className="py-0.5 opacity-0 h-[22px]"></div>;
-
+            <div className="flex gap-6 mb-8 items-start shrink-0">
+              <div className="flex-1 p-4 space-y-4 text-[11px] font-black uppercase border-2 border-black bg-white">
+                {identitasList.map((item) => {
+                  const isSignature = item.label.toLowerCase().includes("tanda tangan") || item.label.toLowerCase().includes("ttd");
                   return (
-                    <div key={nomorSoal} className="flex items-center gap-2 py-0.5 border-b border-[#eeeeee]">
-                      <span className="w-6 text-right font-black text-sm">{nomorSoal}.</span>
-                      <div className="flex gap-1.5">
-                        {Array.from({ length: jumlahPilihan }).map((_, optIdx) => (
-                          <svg key={optIdx} width={bubbleSize} height={bubbleSize} viewBox={`0 0 ${bubbleSize} ${bubbleSize}`} style={{ display: "block" }}>
-                            <circle cx={bubbleSize/2} cy={bubbleSize/2} r={(bubbleSize/2) - 1} fill="none" stroke="#000000" strokeWidth="1.5" />
-                            <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize={fontSize} fontWeight="900" fill="#000000" fontFamily="sans-serif">
-                              {getOptionLabel(optIdx)}
-                            </text>
-                          </svg>
-                        ))}
-                      </div>
+                    <div key={item.id} className="flex gap-2">
+                      <span className="whitespace-nowrap">{item.label}</span><span className="pr-2">:</span>
+                      <div className="flex-1 border-b border-black border-dashed" style={{ height: isSignature ? "32px" : "12px", marginTop: isSignature ? "0" : "2px" }}></div>
                     </div>
                   );
                 })}
               </div>
-            ))}
+
+              {useKodeUjian && (
+                <div className="p-2 flex flex-col items-center border-2 border-black bg-white">
+                  <p className="text-[9px] font-black mb-2 w-full text-center pb-1 border-b border-black">KODE UJIAN</p>
+                  <div className="flex gap-1">
+                    {Array.from({ length: jumlahDigitKodeUjian }).map((_, digitIndex) => (
+                      <div key={digitIndex} className="flex flex-col gap-0.5 items-center">
+                        <div className="w-3.5 h-3.5 mb-1 border-[1.5px] border-black rounded-full"></div>
+                        {Array.from({ length: 10 }).map((_, num) => (
+                          <svg key={num} width="14" height="14" viewBox="0 0 14 14" style={{ display: "block" }}>
+                            <circle cx="7" cy="7" r="6" fill="none" stroke="#000000" strokeWidth="1" />
+                            <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize="7" fontWeight="900" fill="#000000" fontFamily="sans-serif">{num}</text>
+                          </svg>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {modeIdentitas === "nis" ? (
+                <div className="p-2 flex flex-col items-center border-2 border-black bg-white">
+                  <p className="text-[9px] font-black mb-2 w-full text-center pb-1 border-b border-black">ARSIRAN NIS</p>
+                  <div className="flex gap-1">
+                    {Array.from({ length: jumlahDigitNIS }).map((_, digitIndex) => (
+                      <div key={digitIndex} className="flex flex-col gap-0.5 items-center">
+                        <div className="w-3.5 h-3.5 mb-1 border-[1.5px] border-black rounded-full"></div>
+                        {Array.from({ length: 10 }).map((_, num) => (
+                          <svg key={num} width="14" height="14" viewBox="0 0 14 14" style={{ display: "block" }}>
+                            <circle cx="7" cy="7" r="6" fill="none" stroke="#000000" strokeWidth="1" />
+                            <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize="7" fontWeight="900" fill="#000000" fontFamily="sans-serif">{num}</text>
+                          </svg>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-2 text-center relative w-[150px] h-[150px] border-2 border-black border-dashed bg-white">
+                  <div className="absolute top-0 left-0 w-full text-[10px] font-bold py-0.5 bg-black text-white">AREA BARCODE</div>
+                  <Scan size={48} weight="thin" className="text-[#aaaaaa] mt-4" />
+                  <p className="text-[9px] font-semibold mt-2 text-[#666666]">Tempel QR/Barcode</p>
+                </div>
+              )}
+            </div>
+
+            {/* AREA JAWABAN PILIHAN GANDA */}
+            <div className="flex justify-between shrink-0" style={{ gap: '20px' }}>
+              {Array.from({ length: kolom }).map((_, colIndex) => (
+                <div key={colIndex} className="flex-1 flex flex-col gap-y-2">
+                  {Array.from({ length: soalPerKolom }).map((_, rowIndex) => {
+                    const nomorSoal = rowIndex + 1 + (colIndex * soalPerKolom);
+                    if (nomorSoal > jumlahSoal) return <div key={nomorSoal} className="py-0.5 opacity-0 h-[22px]"></div>;
+
+                    return (
+                      <div key={nomorSoal} className="flex items-center gap-2 py-0.5 border-b border-[#eeeeee]">
+                        <span className="w-6 text-right font-black text-sm">{nomorSoal}.</span>
+                        <div className="flex gap-1.5">
+                          {Array.from({ length: jumlahPilihan }).map((_, optIdx) => (
+                            <svg key={optIdx} width={bubbleSize} height={bubbleSize} viewBox={`0 0 ${bubbleSize} ${bubbleSize}`} style={{ display: "block" }}>
+                              <circle cx={bubbleSize/2} cy={bubbleSize/2} r={(bubbleSize/2) - 1} fill="none" stroke="#000000" strokeWidth="1.5" />
+                              <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize={fontSize} fontWeight="900" fill="#000000" fontFamily="sans-serif">
+                                {getOptionLabel(optIdx)}
+                              </text>
+                            </svg>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* AREA KOTAK JAWABAN ESAI (DENGAN GARIS GRID BUKU) */}
+            {useEsai && (
+              <div className="mt-8 w-full border-2 border-black p-4 flex flex-col shrink-0 bg-white relative" style={{ height: `${tinggiEsaiCM}cm` }}>
+                <div className="absolute top-0 left-0 bg-black text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                  <NotePencil size={12} weight="bold" /> AREA JAWABAN ESAI
+                </div>
+                {/* Efek Garis Buku Tulis / Grid Horizontal */}
+                <div className="flex-1 mt-4 border border-[#dddddd] border-dashed" style={{ backgroundImage: 'linear-gradient(transparent 95%, #e2e8f0 95%)', backgroundSize: '100% 8mm' }}></div>
+              </div>
+            )}
+
           </div>
 
-          <div className="absolute bottom-[12mm] left-[25mm] right-[25mm] text-center pt-2 z-10 border-t border-[#cccccc]">
+          {/* FOOTER */}
+          <div className="mt-auto absolute bottom-[12mm] left-[25mm] right-[25mm] text-center pt-2 z-10 border-t border-[#cccccc]">
             <p className="text-[8px] font-black tracking-[0.4em] text-[#666666]">{teksFooter}</p>
           </div>
 
