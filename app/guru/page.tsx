@@ -1,183 +1,248 @@
 "use client";
 
-import React from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { 
-  PlusCircle, 
-  Scan, 
-  FileText, 
-  UsersThree, 
-  ChartLineUp, 
-  ClockCounterClockwise,
-  CaretRight,
-  GraduationCap,
-  DotsThreeVertical
+  Scan, FileText, ChartBar, Student, Bell, UserCircle, 
+  RocketLaunch, Clock, CalendarCheck, TrendUp, Plus, CaretRight
 } from "@phosphor-icons/react";
 
-// WAJIB: Ada "export default function" agar tidak error di Next.js
-export default function DashboardGuru() {
-  
-  // Data Dummy untuk Statistik
-  const statistik = [
-    { label: "Total LJK Terpindai", nilai: "1,284", tren: "+12%", warna: "text-blue-600", bg: "bg-blue-50" },
-    { label: "Ujian Aktif", nilai: "5", tren: "Minggu ini", warna: "text-emerald-600", bg: "bg-emerald-50" },
-    { label: "Rata-rata Nilai", nilai: "78.5", tren: "+5.2", warna: "text-indigo-600", bg: "bg-indigo-50" },
-  ];
+export default function MainDashboard() {
+  const [greeting, setGreeting] = useState("Selamat Datang");
+  const [currentTime, setCurrentTime] = useState("");
 
-  // Data Dummy Aktivitas Terbaru
-  const aktivitas = [
-    { id: 1, nama: "Ujian Biologi Sel", kelas: "X-IPA 1", waktu: "2 jam yang lalu", status: "Selesai" },
-    { id: 2, nama: "Kuis Tajwid Dasar", kelas: "VII-A", waktu: "5 jam yang lalu", status: "Selesai" },
-    { id: 3, nama: "Ujian Akhir Semester", kelas: "XII-IPS", waktu: "Kemarin", status: "Proses" },
-  ];
+  // Efek Sapaan & Waktu Dinamis
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      
+      if (hour >= 5 && hour < 11) setGreeting("Selamat Pagi");
+      else if (hour >= 11 && hour < 15) setGreeting("Selamat Siang");
+      else if (hour >= 15 && hour < 18) setGreeting("Selamat Sore");
+      else setGreeting("Selamat Malam");
+
+      setCurrentTime(now.toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit' }));
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans">
-      {/* Top Navigation */}
-      <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-30">
-        <div className="flex items-center gap-2">
-          <div className="bg-blue-600 p-2 rounded-xl text-white">
-            <GraduationCap size={24} weight="fill" />
+    <div className="min-h-screen bg-[#f8fafc] font-sans selection:bg-blue-500 selection:text-white">
+      
+      {/* ========================================= */}
+      {/* 1. TOP NAVIGATION BAR (GLASSMORPHISM)       */}
+      {/* ========================================= */}
+      <nav className="sticky top-0 z-50 bg-white/70 backdrop-blur-lg border-b border-slate-200/50">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30 text-white font-black">
+              T
+            </div>
+            <span className="font-black text-xl tracking-tight text-slate-800">
+              Tarbiyah<span className="text-blue-600">Tech</span>
+            </span>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">
-            Fast<span className="text-blue-600">Test</span>
-          </h1>
-        </div>
-        <div className="flex items-center gap-4">
-            <div className="text-right hidden md:block">
-                <p className="text-sm font-bold text-slate-900">Ustadz Ahmad</p>
-                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Administrator</p>
-            </div>
-            <div className="w-10 h-10 bg-slate-200 rounded-full border-2 border-white shadow-sm overflow-hidden">
-                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Ahmad" alt="avatar" />
-            </div>
+
+          <div className="flex items-center gap-4">
+            <button className="relative p-2 text-slate-400 hover:text-blue-600 transition-colors">
+              <Bell size={24} weight="fill" />
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+            </button>
+            <div className="h-8 w-px bg-slate-200"></div>
+            <button className="flex items-center gap-2 group">
+              <div className="text-right hidden md:block">
+                <p className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition-colors">Ustadz Ahmad</p>
+                <p className="text-[10px] font-bold text-slate-400">Guru Mapel</p>
+              </div>
+              <UserCircle size={36} weight="fill" className="text-slate-300 group-hover:text-blue-600 transition-colors" />
+            </button>
+          </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto p-6 lg:p-10">
+      {/* ========================================= */}
+      {/* 2. HERO SECTION (SAPAAN & STATISTIK CEPAT)  */}
+      {/* ========================================= */}
+      <main className="max-w-7xl mx-auto px-6 py-8">
         
-        {/* Welcome Section */}
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-          <div>
-            <h2 className="text-4xl font-black text-slate-900 leading-tight">
-              Ahlan wa Sahlan, <span className="text-blue-600">Guru!</span>
-            </h2>
-            <p className="text-slate-500 font-medium mt-1 text-lg">Kelola ujian dan pantau hasil santri dalam satu platform canggih.</p>
-          </div>
-          
-          <div className="flex gap-4 w-full md:w-auto">
-            <Link href="/guru/ujian/buat" className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-all shadow-sm">
-              <PlusCircle size={22} weight="bold" /> Buat Kunci
-            </Link>
-            <Link href="/guru/scan" className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 hover:-translate-y-1">
-              <Scan size={22} weight="bold" /> Mulai Scan
-            </Link>
-          </div>
-        </header>
+        <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 rounded-[2rem] p-8 md:p-12 text-white shadow-2xl shadow-blue-900/20 relative overflow-hidden mb-10">
+          {/* Dekorasi Abstrak Latar Belakang */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
 
-        {/* Statistik Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-          {statistik.map((item, idx) => (
-            <div key={idx} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:border-blue-100 transition-all duration-300">
-              <div className="flex justify-between items-center mb-6">
-                <div className={`p-4 ${item.bg} ${item.warna} rounded-2xl`}>
-                   {idx === 0 ? <Scan size={32} weight="bold" /> : idx === 1 ? <FileText size={32} weight="bold" /> : <ChartLineUp size={32} weight="bold" />}
-                </div>
-                <span className="text-xs font-bold text-blue-500 bg-blue-50 px-3 py-1.5 rounded-full uppercase tracking-wider">
-                  {item.tren}
-                </span>
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-xs font-bold border border-white/20 mb-6">
+                <Clock size={16} /> {currentTime} WIB &bull; {new Date().toLocaleDateString("id-ID", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </div>
-              <p className="text-slate-400 text-xs font-black uppercase tracking-[0.2em] mb-2">{item.label}</p>
-              <h3 className="text-5xl font-black text-slate-900">{item.nilai}</h3>
+              <h1 className="text-4xl md:text-5xl font-black mb-2 tracking-tight">
+                {greeting}, Ahmad!
+              </h1>
+              <p className="text-blue-100 font-medium text-lg max-w-lg">
+                Siap untuk mengevaluasi hasil belajar hari ini? Sistem OMR canggih TarbiyahTech siap membantu Anda.
+              </p>
             </div>
-          ))}
+
+            {/* Quick Stats Banner */}
+            <div className="flex gap-4 bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/20">
+              <div className="px-4 border-r border-white/20 text-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Total Santri</p>
+                <p className="text-3xl font-black">120</p>
+              </div>
+              <div className="px-4 text-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Kertas Di-Scan</p>
+                <p className="text-3xl font-black text-green-300">845</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+        {/* ========================================= */}
+        {/* 3. MENU MODUL UTAMA (INTERAKTIF & AKTIF)    */}
+        {/* ========================================= */}
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+            <RocketLaunch size={24} className="text-blue-600" /> Modul Utama
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           
-          {/* Main Activity Column */}
+          {/* MENU 1: GENERATOR LJK */}
+          <Link href="/guru/ujian/buat" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-500 hover:-translate-y-1 transition-all duration-300">
+            <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors">
+              <FileText size={28} weight="fill" className="text-blue-600 group-hover:text-white transition-colors" />
+            </div>
+            <h3 className="text-lg font-black text-slate-800 mb-2">Buat Ujian & LJK</h3>
+            <p className="text-sm font-medium text-slate-500 mb-6">Desain dan cetak kertas Lembar Jawaban Komputer (LJK) otomatis.</p>
+            <div className="flex items-center text-xs font-bold text-blue-600 group-hover:gap-2 transition-all">
+              Buka Generator <CaretRight size={14} weight="bold" />
+            </div>
+          </Link>
+
+          {/* MENU 2: SCANNER PINTAR */}
+          {/* Default mengarah ke scan ujian bahasa arab sebagai contoh */}
+          <Link href="/guru/scan?namaUjian=Pemindaian+Cepat" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-green-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            {/* Pinggir hijau efek canggih */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-green-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
+            
+            <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-green-600 transition-colors">
+              <Scan size={28} weight="fill" className="text-green-600 group-hover:text-white transition-colors" />
+            </div>
+            <h3 className="text-lg font-black text-slate-800 mb-2">Scanner Pintar</h3>
+            <p className="text-sm font-medium text-slate-500 mb-6">Koreksi LJK dengan kamera HP. Super cepat dan akurat ala QRIS.</p>
+            <div className="flex items-center text-xs font-bold text-green-600 group-hover:gap-2 transition-all">
+              Buka Kamera <CaretRight size={14} weight="bold" />
+            </div>
+          </Link>
+
+          {/* MENU 3: ARSIP & DASHBOARD NILAI */}
+          <Link href="/guru/arsip" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-purple-500 hover:-translate-y-1 transition-all duration-300">
+            <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors">
+              <ChartBar size={28} weight="fill" className="text-purple-600 group-hover:text-white transition-colors" />
+            </div>
+            <h3 className="text-lg font-black text-slate-800 mb-2">Arsip & Analisis</h3>
+            <p className="text-sm font-medium text-slate-500 mb-6">Kelola nilai siswa, cetak laporan Excel & PDF, dan lihat bukti foto.</p>
+            <div className="flex items-center text-xs font-bold text-purple-600 group-hover:gap-2 transition-all">
+              Lihat Laporan <CaretRight size={14} weight="bold" />
+            </div>
+          </Link>
+
+          {/* MENU 4: KELOLA SANTRI */}
+          <Link href="/guru/santri" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-orange-500 hover:-translate-y-1 transition-all duration-300">
+            <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-orange-500 transition-colors">
+              <Student size={28} weight="fill" className="text-orange-500 group-hover:text-white transition-colors" />
+            </div>
+            <h3 className="text-lg font-black text-slate-800 mb-2">Kelola Santri</h3>
+            <p className="text-sm font-medium text-slate-500 mb-6">Manajemen data induk siswa, kenaikan kelas, dan import data.</p>
+            <div className="flex items-center text-xs font-bold text-orange-500 group-hover:gap-2 transition-all">
+              Kelola Data <CaretRight size={14} weight="bold" />
+            </div>
+          </Link>
+
+        </div>
+
+        {/* ========================================= */}
+        {/* 4. SEKSI AKTIVITAS TERBARU & JADWAL         */}
+        {/* ========================================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* Ujian Aktif / Mendatang */}
           <div className="lg:col-span-2">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-                <ClockCounterClockwise size={28} weight="bold" className="text-blue-600" />
-                Aktivitas Terbaru
-              </h3>
-              <Link href="/guru/ujian" className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                Lihat Semua <CaretRight size={14} weight="bold" />
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
+                <CalendarCheck size={20} className="text-blue-600" /> Ujian Aktif
+              </h2>
+              <Link href="/guru/ujian/buat" className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                <Plus size={12} weight="bold" /> Ujian Baru
               </Link>
             </div>
             
-            <div className="space-y-4">
-              {aktivitas.map((act) => (
-                <div key={act.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 flex items-center justify-between group hover:border-blue-400 hover:bg-blue-50/10 transition-all cursor-pointer">
-                  <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-all duration-300">
-                      <FileText size={28} weight="duotone" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-lg group-hover:text-blue-600 transition-colors">{act.nama}</h4>
-                      <p className="text-sm text-slate-500 font-medium">{act.kelas} • {act.waktu}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${act.status === 'Selesai' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {act.status}
-                    </span>
-                    <DotsThreeVertical size={24} weight="bold" className="text-slate-300" />
-                  </div>
+            <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+              <div className="p-4 hover:bg-slate-50 border-b border-slate-100 flex items-center justify-between transition-colors group cursor-pointer">
+                <div>
+                  <h4 className="font-black text-slate-800 group-hover:text-blue-600 transition-colors">Ujian Akhir Semester: Bahasa Arab</h4>
+                  <p className="text-xs font-bold text-slate-400 mt-1">Kelas XII IPA & IPS &bull; 40 Soal</p>
                 </div>
-              ))}
+                <Link href="/guru/scan?namaUjian=Bahasa+Arab" className="px-4 py-2 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl hover:bg-blue-600 hover:text-white transition-colors">
+                  Mulai Scan
+                </Link>
+              </div>
+              <div className="p-4 hover:bg-slate-50 flex items-center justify-between transition-colors group cursor-pointer">
+                <div>
+                  <h4 className="font-black text-slate-800 group-hover:text-blue-600 transition-colors">Ulangan Harian: Fiqih</h4>
+                  <p className="text-xs font-bold text-slate-400 mt-1">Kelas X IPA 1 &bull; 25 Soal</p>
+                </div>
+                <Link href="/guru/scan?namaUjian=Ulangan+Fiqih" className="px-4 py-2 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl hover:bg-blue-600 hover:text-white transition-colors">
+                  Mulai Scan
+                </Link>
+              </div>
             </div>
           </div>
 
-          {/* Quick Shortcuts Column */}
-          <div className="lg:col-span-1">
-            <h3 className="text-2xl font-black text-slate-800 mb-8 flex items-center gap-3">
-              <UsersThree size={28} weight="bold" className="text-blue-600" />
-              Navigasi Cepat
-            </h3>
-            <div className="bg-white rounded-[2.5rem] border border-slate-100 p-4 shadow-sm space-y-2">
-               <Link href="/guru/siswa" className="flex items-center justify-between p-5 hover:bg-slate-50 rounded-3xl transition-colors group">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-slate-100 text-slate-500 rounded-xl group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
-                      <UsersThree size={24} weight="bold" />
-                    </div>
-                    <span className="font-bold text-slate-700 text-lg">Data Santri</span>
+          {/* Ringkasan Analisis Singkat */}
+          <div>
+            <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 mb-4">
+              <TrendUp size={20} className="text-blue-600" /> Insight Cepat
+            </h2>
+            <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10"><ChartBar size={100} weight="fill" /></div>
+              
+              <div className="relative z-10">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Performa Rata-Rata</p>
+                <div className="flex items-end gap-2 mb-6">
+                  <span className="text-5xl font-black text-green-400">78</span>
+                  <span className="text-sm font-bold text-slate-400 mb-1.5">/ 100</span>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
+                    <p className="text-[10px] font-bold text-slate-300 uppercase">Nilai Tertinggi Bulan Ini</p>
+                    <p className="font-black text-sm">Siti Aminah (92) - Bahasa Arab</p>
                   </div>
-                  <CaretRight size={20} weight="bold" className="text-slate-300 group-hover:text-blue-600" />
-               </Link>
-               
-               <div className="h-px bg-slate-100 mx-6" />
-               
-               <Link href="/guru/ujian" className="flex items-center justify-between p-5 hover:bg-slate-50 rounded-3xl transition-colors group">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-slate-100 text-slate-500 rounded-xl group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors">
-                      <FileText size={24} weight="bold" />
-                    </div>
-                    <span className="font-bold text-slate-700 text-lg">Bank Ujian</span>
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
+                    <p className="text-[10px] font-bold text-slate-300 uppercase">Soal Paling Sulit (Fiqih)</p>
+                    <p className="font-black text-sm text-orange-300">Nomor 12 (65% Siswa Salah)</p>
                   </div>
-                  <CaretRight size={20} weight="bold" className="text-slate-300 group-hover:text-blue-600" />
-               </Link>
-
-               <div className="h-px bg-slate-100 mx-6" />
-
-               <Link href="/guru/settings" className="flex items-center justify-center p-5 mt-4 bg-slate-900 text-white rounded-3xl hover:bg-slate-800 transition-colors font-bold text-sm">
-                  Pengaturan Akun
-               </Link>
-            </div>
-
-            {/* Promo/Info Box */}
-            <div className="mt-8 bg-gradient-to-br from-blue-600 to-indigo-700 p-8 rounded-[2.5rem] text-white shadow-xl shadow-blue-200">
-               <h4 className="font-black text-xl mb-2">Butuh Bantuan?</h4>
-               <p className="text-blue-100 text-sm mb-6 leading-relaxed">Hubungi tim FastTest untuk panduan penggunaan scanner LJK.</p>
-               <button className="w-full py-3 bg-white text-blue-600 font-black rounded-2xl text-xs uppercase tracking-widest shadow-lg">
-                  WhatsApp Admin
-               </button>
+                </div>
+              </div>
             </div>
           </div>
 
         </div>
       </main>
+
+      {/* FOOTER */}
+      <footer className="border-t border-slate-200 bg-white mt-12 py-8 text-center">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+          Sistem Informasi OMR &copy; {new Date().getFullYear()} TarbiyahTech.
+        </p>
+      </footer>
+
     </div>
   );
 }
