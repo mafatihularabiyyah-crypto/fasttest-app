@@ -6,12 +6,16 @@ import {
   ArrowLeft, DownloadSimple, FilePdf, SlidersHorizontal, 
   TextAUnderline, Hash, CheckCircle, Scan, Trash, Plus, 
   IdentificationBadge, ImageSquare, FloppyDisk, NotePencil,
-  FileText, Copy, GridFour, Wrench
+  FileText, GridFour, Wrench
 } from "@phosphor-icons/react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 export default function LJKGeneratorFinal() {
+  // --- DATA BASE64 LOGO TARBIYAH TECH ---
+  // Digunakan sebagai fallback watermark agar selalu tampil
+  const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJTSURBVHgB7d0xbhNREIDh90IsiYIuDR0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDR0XoKInpKQEDX0XoKKf/R9fA/E705cAAAAASUVORK5CYII=";
+
   // --- STATE ALUR HALAMAN ---
   const [viewState, setViewState] = useState<'select' | 'editor'>('select');
 
@@ -34,7 +38,7 @@ export default function LJKGeneratorFinal() {
   
   // --- 2. STATE STRUKTUR SOAL ---
   const [jumlahSoal, setJumlahSoal] = useState(40);
-  const [jumlahPilihan, setJumlahPilihan] = useState(5); // A-E
+  const [jumlahPilihan, setJumlahPilihan] = useState(4); // Default A-D
   const [tipePilihan, setTipePilihan] = useState<"huruf" | "angka" | "bs">("huruf");
   const [kolom, setKolom] = useState(3);
   const [poinRata, setPoinRata] = useState(2.5);
@@ -50,14 +54,14 @@ export default function LJKGeneratorFinal() {
 
   // --- FUNGSI CUSTOM ---
   const handleSelectTemplate = (type: string) => {
-    if (type === '40_PG') {
-      setJumlahSoal(40); setKolom(3); setUseEsai(false); setJumlahPilihan(5);
-    } else if (type === '30_PG_ESAI') {
-      setJumlahSoal(30); setKolom(3); setUseEsai(true); setTinggiEsaiCM(8); setJumlahPilihan(5);
-    } else if (type === '50_PG') {
-      setJumlahSoal(50); setKolom(4); setUseEsai(false); setJumlahPilihan(5);
+    if (type === 'PG_AD') {
+      setJumlahSoal(40); setKolom(3); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("huruf");
+    } else if (type === 'BS') {
+      setJumlahSoal(30); setKolom(3); setUseEsai(false); setJumlahPilihan(2); setTipePilihan("bs");
+    } else if (type === 'SKOR_14') {
+      setJumlahSoal(30); setKolom(3); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("angka");
     } else if (type === 'CUSTOM') {
-      // Tidak merubah state default, langsung masuk editor
+      // Masuk editor tanpa reset state
     }
     setViewState('editor');
   };
@@ -107,80 +111,86 @@ export default function LJKGeneratorFinal() {
   };
 
   const getOptionLabel = (index: number) => {
-    if (tipePilihan === "huruf") return String.fromCharCode(65 + index);
+    if (tipePilihan === "huruf") return String.fromCharCode(65 + index); // 65 = 'A'
     if (tipePilihan === "bs") return index === 0 ? "B" : "S";
-    return (index + 1).toString();
+    return (index + 1).toString(); // Untuk angka (1, 2, 3...)
   };
 
-  const handlePilihTipe = (tipe: "huruf" | "angka" | "bs") => {
+  const handlePilihTipe = (tipe: "huruf" | "angka" | "bs", jumlahOpsi: number) => {
     setTipePilihan(tipe);
-    if (tipe === "bs") setJumlahPilihan(2);
+    setJumlahPilihan(jumlahOpsi);
   };
 
   const bubbleSize = jumlahPilihan > 8 ? 13 : jumlahPilihan > 5 ? 16 : 20;
   const fontSize = jumlahPilihan > 8 ? 6 : jumlahPilihan > 5 ? 8 : 10;
   const soalPerKolom = Math.ceil(jumlahSoal / kolom);
-  const patternKetebalan = [10, 7, 4, 2];
-
 
   // =======================================================================
   // RENDER VIEW 1: MENU PILIH TEMPLATE
   // =======================================================================
   if (viewState === 'select') {
     return (
-      <div className="min-h-screen bg-[#f8fafc] font-sans flex flex-col items-center pt-24 px-6 relative overflow-hidden">
-        {/* Aksen Background */}
-        <div className="absolute top-0 left-0 w-full h-64 bg-blue-700 pointer-events-none rounded-b-[3rem]"></div>
+      <div className="min-h-screen bg-[#f8fafc] font-sans flex flex-col items-center relative overflow-hidden pt-24 px-6">
         
-        <Link href="/guru" className="absolute top-8 left-8 p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-all">
+        {/* Background Biru Top */}
+        <div className="absolute top-0 left-0 w-full h-[45vh] bg-[#1d4ed8] rounded-b-[2.5rem] pointer-events-none"></div>
+        
+        <Link href="/guru" className="absolute top-8 left-8 p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-all cursor-pointer">
           <ArrowLeft size={24} weight="bold" />
         </Link>
 
-        <div className="relative z-10 text-center mb-12">
-          <h1 className="text-4xl font-black text-white tracking-tight mb-3">Pilih Template LJK</h1>
-          <p className="text-blue-100 font-medium max-w-md mx-auto">Gunakan template standar agar LJK Anda bisa langsung dicetak, atau buat desain LJK custom dari nol.</p>
+        <div className="relative z-10 text-center mb-12 mt-8">
+          <h1 className="text-4xl lg:text-5xl font-black text-white tracking-tight mb-4">Pilih Template LJK</h1>
+          <p className="text-blue-100 font-medium max-w-lg mx-auto text-sm lg:text-base">Gunakan template standar agar LJK Anda bisa langsung dicetak, atau buat desain LJK custom dari nol.</p>
         </div>
 
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl w-full">
           
-          {/* Card: 40 PG */}
-          <div onClick={() => handleSelectTemplate('40_PG')} className="bg-white p-6 rounded-3xl shadow-lg border border-slate-200 hover:border-blue-500 hover:-translate-y-2 transition-all cursor-pointer group flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors"><FileText size={32} weight="fill"/></div>
-            <h3 className="font-black text-slate-800 text-lg mb-1">Standar 40 Soal</h3>
-            <p className="text-xs font-bold text-slate-500 mb-4">40 Pilihan Ganda (A-E)<br/>Tanpa Esai</p>
-            <button className="mt-auto w-full py-2 bg-slate-100 text-slate-600 font-bold rounded-xl group-hover:bg-blue-50 group-hover:text-blue-700 transition-colors text-xs uppercase tracking-widest">Pilih Ini</button>
+          {/* Card 1: Pilihan Ganda (A-D) */}
+          <div onClick={() => handleSelectTemplate('PG_AD')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-transparent hover:border-blue-400 transition-all group cursor-pointer">
+            <div className="w-20 h-20 bg-blue-100 text-blue-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
+              <FileText size={40} weight="fill" />
+            </div>
+            <h3 className="font-black text-slate-800 text-xl mb-2">Pilihan Ganda</h3>
+            <p className="text-xs font-bold text-slate-400 mb-8 leading-relaxed">40 Pilihan Ganda (A-D)<br/>Tanpa Esai</p>
+            <button className="w-full py-3.5 bg-slate-50 text-slate-600 font-black rounded-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors uppercase tracking-widest text-[10px]">PILIH INI</button>
           </div>
 
-          {/* Card: 30 PG + Esai */}
-          <div onClick={() => handleSelectTemplate('30_PG_ESAI')} className="bg-white p-6 rounded-3xl shadow-lg border border-slate-200 hover:border-emerald-500 hover:-translate-y-2 transition-all cursor-pointer group flex flex-col items-center text-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">Paling Laris</div>
-            <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-colors"><NotePencil size={32} weight="fill"/></div>
-            <h3 className="font-black text-slate-800 text-lg mb-1">Kombinasi Esai</h3>
-            <p className="text-xs font-bold text-slate-500 mb-4">30 Pilihan Ganda (A-E)<br/>+ Area Kotak Esai</p>
-            <button className="mt-auto w-full py-2 bg-slate-100 text-slate-600 font-bold rounded-xl group-hover:bg-emerald-50 group-hover:text-emerald-700 transition-colors text-xs uppercase tracking-widest">Pilih Ini</button>
+          {/* Card 2: Benar/Salah (B/S) */}
+          <div onClick={() => handleSelectTemplate('BS')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-transparent hover:border-emerald-400 transition-all group relative overflow-hidden cursor-pointer">
+            <div className="absolute top-0 right-8 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-b-xl shadow-sm z-10">PALING LARIS</div>
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
+              <CheckCircle size={40} weight="fill" />
+            </div>
+            <h3 className="font-black text-slate-800 text-xl mb-2">Benar / Salah</h3>
+            <p className="text-xs font-bold text-slate-400 mb-8 leading-relaxed">30 Soal (B/S)<br/>Tanpa Esai</p>
+            <button className="w-full py-3.5 bg-slate-50 text-slate-600 font-black rounded-xl group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors uppercase tracking-widest text-[10px]">PILIH INI</button>
           </div>
 
-          {/* Card: 50 PG */}
-          <div onClick={() => handleSelectTemplate('50_PG')} className="bg-white p-6 rounded-3xl shadow-lg border border-slate-200 hover:border-indigo-500 hover:-translate-y-2 transition-all cursor-pointer group flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-indigo-600 group-hover:text-white transition-colors"><GridFour size={32} weight="fill"/></div>
-            <h3 className="font-black text-slate-800 text-lg mb-1">Padat 50 Soal</h3>
-            <p className="text-xs font-bold text-slate-500 mb-4">50 Pilihan Ganda (A-E)<br/>Tanpa Esai</p>
-            <button className="mt-auto w-full py-2 bg-slate-100 text-slate-600 font-bold rounded-xl group-hover:bg-indigo-50 group-hover:text-indigo-700 transition-colors text-xs uppercase tracking-widest">Pilih Ini</button>
+          {/* Card 3: Skor 1-4 */}
+          <div onClick={() => handleSelectTemplate('SKOR_14')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-transparent hover:border-purple-400 transition-all group cursor-pointer">
+            <div className="w-20 h-20 bg-purple-100 text-purple-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
+              <GridFour size={40} weight="fill" />
+            </div>
+            <h3 className="font-black text-slate-800 text-xl mb-2">Skor & Survei</h3>
+            <p className="text-xs font-bold text-slate-400 mb-8 leading-relaxed">30 Soal Angka (1-4)<br/>Tanpa Esai</p>
+            <button className="w-full py-3.5 bg-slate-50 text-slate-600 font-black rounded-xl group-hover:bg-purple-50 group-hover:text-purple-600 transition-colors uppercase tracking-widest text-[10px]">PILIH INI</button>
           </div>
 
-          {/* Card: Custom */}
-          <div onClick={() => handleSelectTemplate('CUSTOM')} className="bg-slate-800 p-6 rounded-3xl shadow-lg border border-slate-700 hover:border-slate-400 hover:-translate-y-2 transition-all cursor-pointer group flex flex-col items-center text-center">
-            <div className="w-16 h-16 bg-slate-700 text-white rounded-2xl flex items-center justify-center mb-4 group-hover:bg-white group-hover:text-slate-800 transition-colors"><Wrench size={32} weight="fill"/></div>
-            <h3 className="font-black text-white text-lg mb-1">Desain Custom</h3>
-            <p className="text-xs font-medium text-slate-400 mb-4">Atur sendiri jumlah soal, opsi, kolom, dan esai.</p>
-            <button className="mt-auto w-full py-2 bg-slate-700 text-white font-bold rounded-xl group-hover:bg-slate-600 transition-colors text-xs uppercase tracking-widest">Buat Dari Nol</button>
+          {/* Card 4: Custom */}
+          <div onClick={() => handleSelectTemplate('CUSTOM')} className="bg-[#1e293b] p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-[#334155] hover:border-slate-400 transition-all group cursor-pointer">
+            <div className="w-20 h-20 bg-[#334155] text-slate-300 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:rotate-12 transition-transform">
+              <Wrench size={40} weight="fill" />
+            </div>
+            <h3 className="font-black text-white text-xl mb-2">Desain Custom</h3>
+            <p className="text-xs font-medium text-slate-400 mb-8 leading-relaxed">Atur sendiri jumlah soal, opsi, kolom, dan esai.</p>
+            <button className="w-full py-3.5 bg-[#334155] text-white font-black rounded-xl group-hover:bg-[#475569] transition-colors uppercase tracking-widest text-[10px]">BUAT DARI NOL</button>
           </div>
 
         </div>
       </div>
     );
   }
-
 
   // =======================================================================
   // RENDER VIEW 2: EDITOR LJK
@@ -189,13 +199,13 @@ export default function LJKGeneratorFinal() {
     <div className="min-h-screen bg-[#f1f5f9] flex overflow-hidden font-sans">
       {/* PANEL KIRI: PENGATURAN */}
       <div className="w-[420px] bg-white border-r border-[#e2e8f0] flex flex-col h-screen overflow-y-auto z-20 shadow-xl scrollbar-hide shrink-0">
-        <div className="p-6 bg-blue-700 text-white sticky top-0 z-10 shadow-sm">
+        <div className="p-6 bg-[#1d4ed8] text-white sticky top-0 z-10 shadow-sm">
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center gap-3">
-              <button onClick={() => setViewState('select')} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-all" title="Kembali Pilih Template"><ArrowLeft size={18} weight="bold" /></button>
+              <button onClick={() => setViewState('select')} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-all cursor-pointer" title="Kembali Pilih Template"><ArrowLeft size={18} weight="bold" /></button>
               <h1 className="text-lg font-black tracking-tight uppercase">LJK Editor</h1>
             </div>
-            <button onClick={() => setViewState('select')} className="text-[10px] font-bold bg-white/10 hover:bg-white/20 px-2 py-1 rounded">Ganti Template</button>
+            <button onClick={() => setViewState('select')} className="text-[10px] font-bold bg-white/10 hover:bg-white/20 px-2 py-1 rounded cursor-pointer">Ganti Template</button>
           </div>
           <p className="text-xs text-blue-100 font-medium">Pengaturan Kertas TarbiyahTech</p>
         </div>
@@ -236,14 +246,19 @@ export default function LJKGeneratorFinal() {
 
           <div className="space-y-4">
             <label className="text-[10px] font-black text-[#94a3b8] uppercase tracking-widest flex items-center gap-2"><SlidersHorizontal size={14} /> Struktur & Penilaian</label>
-            <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => handlePilihTipe("huruf")} className={`py-2 text-xs font-bold rounded-xl border ${tipePilihan === 'huruf' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>A, B, C</button>
-              <button onClick={() => handlePilihTipe("angka")} className={`py-2 text-xs font-bold rounded-xl border ${tipePilihan === 'angka' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>1, 2, 3</button>
-              <button onClick={() => handlePilihTipe("bs")} className={`py-2 text-xs font-bold rounded-xl border ${tipePilihan === 'bs' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>B / S</button>
+            
+            {/* FITUR PILIHAN TIPE BUBBLE OMR */}
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => handlePilihTipe("huruf", 4)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'huruf' && jumlahPilihan === 4 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>A-D</button>
+              <button onClick={() => handlePilihTipe("huruf", 5)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'huruf' && jumlahPilihan === 5 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>A-E</button>
+              <button onClick={() => handlePilihTipe("bs", 2)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'bs' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>B/S</button>
+              <button onClick={() => handlePilihTipe("angka", 4)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'angka' && jumlahPilihan === 4 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>1-4</button>
+              <button onClick={() => handlePilihTipe("angka", 5)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'angka' && jumlahPilihan === 5 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>1-5</button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            
+            <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Jumlah Soal PG</span><input type="number" min="1" value={jumlahSoal} onChange={(e) => setJumlahSoal(Number(e.target.value))} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-bold text-sm outline-none" /></div>
-              <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Opsi per Soal</span><input type="number" min="2" max="10" value={jumlahPilihan} onChange={(e) => setJumlahPilihan(Number(e.target.value))} disabled={tipePilihan === 'bs'} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-bold text-sm outline-none disabled:opacity-50" /></div>
+              <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Opsi per Soal (Manual)</span><input type="number" min="2" max="10" value={jumlahPilihan} onChange={(e) => setJumlahPilihan(Number(e.target.value))} disabled={tipePilihan === 'bs'} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-bold text-sm outline-none disabled:opacity-50" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
                <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Kolom Kertas</span><input type="number" min="1" max="6" value={kolom} onChange={(e) => setKolom(Number(e.target.value))} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-black text-blue-600 outline-none" /></div>
@@ -253,12 +268,12 @@ export default function LJKGeneratorFinal() {
 
           <div className="space-y-3 p-4 border border-[#e2e8f0] rounded-2xl bg-white">
             <label className="text-[10px] font-black text-[#94a3b8] uppercase tracking-widest flex items-center gap-2"><Hash size={14} /> Fitur Scanner & Area OMR</label>
-            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useAnchor} onChange={(e) => setUseAnchor(e.target.checked)} className="w-4 h-4" /><span className="text-xs font-bold">Corner Anchor & Timing Marks</span></label>
-            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useKodeUjian} onChange={(e) => setUseKodeUjian(e.target.checked)} className="w-4 h-4" /><span className="text-xs font-bold">Arsiran KODE UJIAN</span></label>
+            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useAnchor} onChange={(e) => setUseAnchor(e.target.checked)} className="w-4 h-4 cursor-pointer" /><span className="text-xs font-bold cursor-pointer">Corner Anchor & Timing Marks</span></label>
+            <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useKodeUjian} onChange={(e) => setUseKodeUjian(e.target.checked)} className="w-4 h-4 cursor-pointer" /><span className="text-xs font-bold cursor-pointer">Arsiran KODE UJIAN</span></label>
             
             {/* AREA ESAI TOGGLE */}
             <div className="pt-2 border-t border-[#e2e8f0]">
-              <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useEsai} onChange={(e) => setUseEsai(e.target.checked)} className="w-4 h-4 accent-emerald-600" /><span className="text-xs font-bold text-emerald-700">Gunakan Kotak Jawaban Esai</span></label>
+              <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useEsai} onChange={(e) => setUseEsai(e.target.checked)} className="w-4 h-4 accent-emerald-600 cursor-pointer" /><span className="text-xs font-bold text-emerald-700 cursor-pointer">Gunakan Kotak Jawaban Esai</span></label>
             </div>
             
             {useEsai && (
@@ -270,8 +285,8 @@ export default function LJKGeneratorFinal() {
 
             <div className="pt-2 border-t border-[#e2e8f0]">
               <div className="flex gap-2">
-                <button onClick={() => setModeIdentitas("nis")} className={`flex-1 py-1.5 text-xs font-bold rounded-lg border ${modeIdentitas === 'nis' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-[#cbd5e1]'}`}>Arsiran NIS</button>
-                <button onClick={() => setModeIdentitas("barcode")} className={`flex-1 py-1.5 text-xs font-bold rounded-lg border ${modeIdentitas === 'barcode' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-[#cbd5e1]'}`}>Area Barcode</button>
+                <button onClick={() => setModeIdentitas("nis")} className={`flex-1 py-1.5 text-xs font-bold rounded-lg border cursor-pointer ${modeIdentitas === 'nis' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-[#cbd5e1]'}`}>Arsiran NIS</button>
+                <button onClick={() => setModeIdentitas("barcode")} className={`flex-1 py-1.5 text-xs font-bold rounded-lg border cursor-pointer ${modeIdentitas === 'barcode' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white border-[#cbd5e1]'}`}>Area Barcode</button>
               </div>
             </div>
             {modeIdentitas === "nis" && (
@@ -290,12 +305,12 @@ export default function LJKGeneratorFinal() {
         </div>
 
         <div className="mt-auto p-4 border-t border-[#f1f5f9] bg-white sticky bottom-0 z-20 space-y-2 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-          <button onClick={handleSimpanUjian} disabled={isSaving} className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-all shadow-lg uppercase tracking-widest text-xs disabled:opacity-70">
+          <button onClick={handleSimpanUjian} disabled={isSaving} className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-all shadow-lg uppercase tracking-widest text-xs disabled:opacity-70 cursor-pointer">
             {isSaving ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : <><FloppyDisk size={20} weight="fill" /> Simpan Data Ujian</>}
           </button>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => handleExport('png')} disabled={isExporting} className="flex items-center justify-center gap-2 py-2.5 bg-[#1e293b] text-white rounded-xl font-bold transition-all hover:bg-black"><DownloadSimple size={16} /> <span className="text-[10px]">EXPORT PNG</span></button>
-            <button onClick={() => handleExport('pdf')} disabled={isExporting} className="flex items-center justify-center gap-2 py-2.5 bg-[#dc2626] text-white rounded-xl font-bold transition-all hover:bg-red-700"><FilePdf size={16} /> <span className="text-[10px]">CETAK PDF</span></button>
+            <button onClick={() => handleExport('png')} disabled={isExporting} className="flex items-center justify-center gap-2 py-2.5 bg-[#1e293b] text-white rounded-xl font-bold transition-all hover:bg-black cursor-pointer"><DownloadSimple size={16} /> <span className="text-[10px]">EXPORT PNG</span></button>
+            <button onClick={() => handleExport('pdf')} disabled={isExporting} className="flex items-center justify-center gap-2 py-2.5 bg-[#dc2626] text-white rounded-xl font-bold transition-all hover:bg-red-700 cursor-pointer"><FilePdf size={16} /> <span className="text-[10px]">CETAK PDF</span></button>
           </div>
         </div>
       </div>
@@ -306,31 +321,30 @@ export default function LJKGeneratorFinal() {
 
         <div ref={ljkRef} className="shadow-2xl relative box-border bg-white flex flex-col" style={{ width: "210mm", height: "297mm", paddingTop: "15mm", paddingBottom: "15mm", paddingLeft: "25mm", paddingRight: "25mm", color: "#000000" }}>
           
-          {/* WATERMARK TARBIYAH TECH (DENGAN LOGO GRAYSCALE) */}
+          {/* WATERMARK TARBIYAH TECH (DENGAN LOGO BASE64 SUPAYA AMAN) */}
           <div className="absolute right-[6mm] top-0 bottom-0 flex items-center justify-center z-10 w-6">
-            <div className="flex items-center gap-3" style={{ transform: 'rotate(-90deg)', whiteSpace: 'nowrap', opacity: 0.35 }}>
-              <img src="/Logo Tarbiyah Tech (2).png" alt="Logo" className="h-4 object-contain grayscale brightness-0" />
-              <p className="text-[12px] font-black tracking-[0.5em] uppercase m-0">PROVIDED BY TARBIYAH TECH</p>
+            <div className="flex items-center gap-3" style={{ transform: 'rotate(-90deg)', whiteSpace: 'nowrap', opacity: 0.25 }}>
+              <img 
+                src={LOGO_BASE64} // Menggunakan Base64 agar 100% muncul
+                alt="Logo" 
+                className="h-4 object-contain grayscale"
+              />
+              <p className="text-[12px] font-black tracking-[0.5em] uppercase m-0 text-slate-800">PROVIDED BY TARBIYAH TECH</p>
             </div>
           </div>
 
+          {/* TIMING MARKS: HANYA 4 KOTAK DI SUDUT KERTAS */}
           {useAnchor && (
             <>
               <div className="absolute top-[10mm] left-[10mm] w-6 h-6 bg-black"></div>
               <div className="absolute top-[10mm] right-[10mm] w-6 h-6 bg-black"></div>
               <div className="absolute bottom-[10mm] left-[10mm] w-6 h-6 bg-black"></div>
               <div className="absolute bottom-[10mm] right-[10mm] w-6 h-6 bg-black"></div>
-              <div className="absolute top-[30mm] bottom-[30mm] left-[13mm] w-4 flex flex-col justify-between items-center z-0">
-                {Array.from({ length: 24 }).map((_, i) => <div key={`L${i}`} className="w-3.5 bg-black" style={{ height: `${patternKetebalan[i % 4]}px` }}></div>)}
-              </div>
-              <div className="absolute top-[30mm] bottom-[30mm] right-[13mm] w-4 flex flex-col justify-between items-center z-0">
-                {Array.from({ length: 24 }).map((_, i) => <div key={`R${i}`} className="w-3.5 bg-black" style={{ height: `${patternKetebalan[i % 4]}px` }}></div>)}
-              </div>
             </>
           )}
 
-          {/* CONTAINER UTAMA (Mencegah Overlap dengan Timing Marks) */}
-          <div className="relative z-10 flex flex-col h-full pl-[5mm] pr-[5mm]">
+          {/* CONTAINER UTAMA (Mencegah Overlap dengan 4 Kotak Sudut) */}
+          <div className="relative z-10 flex flex-col h-full pl-[5mm] pr-[5mm] pt-[2mm]">
             
             <div className="flex items-center gap-4 pb-3 mb-6 border-b-4 border-black shrink-0">
               <div className="w-[80px] h-[80px] flex items-center justify-center overflow-hidden">{logoUrl && <img src={logoUrl} alt="Logo" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />}</div>

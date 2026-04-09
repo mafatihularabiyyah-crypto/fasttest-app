@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -13,7 +12,8 @@ import {
   FileText,
   Users,
   ShieldCheck,
-  User
+  User,
+  NotePencil
 } from "@phosphor-icons/react";
 
 export default function LandingPage() {
@@ -47,7 +47,7 @@ export default function LandingPage() {
           </div>
           <Link 
             href="/login" 
-            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold text-sm rounded-xl hover:bg-slate-800 transition-all shadow-lg cursor-pointer"
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 text-white font-bold text-sm rounded-xl hover:bg-slate-800 transition-all shadow-lg cursor-pointer active:scale-95"
           >
             Masuk Guru <ArrowRight size={16} weight="bold" />
           </Link>
@@ -71,11 +71,11 @@ export default function LandingPage() {
                 Koreksi Ratusan LJK dalam <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Hitungan Menit.</span>
               </h2>
               <p className="text-lg lg:text-xl text-slate-500 font-medium mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                Tinggalkan mesin scanner kuno dan kertas mahal. Ubah kamera *smartphone* Anda menjadi alat periksa ujian otomatis yang sangat akurat. Didesain khusus untuk beban kerja guru di Indonesia.
+                Tinggalkan mesin scanner kuno dan kertas mahal. Ubah kamera <em>smartphone</em> Anda menjadi alat periksa ujian otomatis yang akurat. Kini dilengkapi dengan fitur <strong>Koreksi Esai Cerdas</strong>.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
-                <Link href="/login" className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-blue-600 text-white font-black text-lg rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 hover:-translate-y-1 cursor-pointer">
+                <Link href="/login" className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-4 bg-blue-600 text-white font-black text-lg rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 hover:-translate-y-1 cursor-pointer active:scale-95">
                   Mulai Gunakan Gratis
                 </Link>
                 <div className="flex items-center gap-3 text-sm font-bold text-slate-500">
@@ -115,9 +115,7 @@ export default function LandingPage() {
                         {[...Array(8)].map((_, i) => (
                           <div key={i} className="flex items-center gap-1.5">
                             <span className="text-[8px] font-black">{i+1}</span>
-                            {/* Simulasi Bulatan (A B C D) */}
                             <div className="w-3.5 h-3.5 rounded-full border border-slate-500 flex items-center justify-center"></div>
-                            {/* Jawaban Benar (Terisi & Ditandai Hijau oleh Scanner) */}
                             {i % 3 === 0 ? (
                                <div className="relative w-3.5 h-3.5 rounded-full bg-slate-800 flex items-center justify-center">
                                  <div className="absolute inset-0 border-2 border-emerald-500 rounded-full scale-150 animate-ping opacity-20"></div>
@@ -125,7 +123,6 @@ export default function LandingPage() {
                             ) : (
                                <div className="w-3.5 h-3.5 rounded-full border border-slate-500 flex items-center justify-center"></div>
                             )}
-                            {/* Jawaban Salah (Terisi & Ditandai Merah) */}
                             {i === 5 ? (
                                <div className="w-3.5 h-3.5 rounded-full bg-slate-800 border-2 border-red-500 shadow-[0_0_8px_#ef4444]"></div>
                             ) : (
@@ -140,16 +137,12 @@ export default function LandingPage() {
 
                   {/* UI Scanner Overlay (Kotak Kamera Pembidik) */}
                   <div className="absolute inset-0 pointer-events-none">
-                    {/* Shadow luar */}
                     <div className="absolute inset-0 border-[30px] border-black/40"></div>
-                    {/* Frame Pembidik (Hijau jika sukses mendeteksi) */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85%] h-[75%] border-2 border-emerald-400 rounded-xl transition-all duration-500 shadow-[0_0_15px_#34d399]">
                       <div className="absolute -top-1 -left-1 w-6 h-6 border-t-4 border-l-4 border-emerald-500 rounded-tl-xl"></div>
                       <div className="absolute -top-1 -right-1 w-6 h-6 border-t-4 border-r-4 border-emerald-500 rounded-tr-xl"></div>
                       <div className="absolute -bottom-1 -left-1 w-6 h-6 border-b-4 border-l-4 border-emerald-500 rounded-bl-xl"></div>
                       <div className="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-emerald-500 rounded-br-xl"></div>
-                      
-                      {/* Garis Laser Animasi */}
                       <div className="absolute top-0 left-0 right-0 h-0.5 bg-emerald-400 shadow-[0_0_8px_#34d399] animate-[bounce_3s_infinite]"></div>
                     </div>
                   </div>
@@ -167,7 +160,6 @@ export default function LandingPage() {
 
                 </div>
               </div>
-              {/* Glow Effect */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-blue-500/10 blur-[80px] rounded-full z-0"></div>
             </div>
 
@@ -186,11 +178,11 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               { icon: <DeviceMobileCamera />, title: "Scan Offline Mode", desc: "Tidak ada sinyal di kelas? Tidak masalah. Pindai LJK tanpa internet, sistem akan otomatis sinkronisasi ke cloud saat Anda online kembali." },
-              { icon: <FileText />, title: "Cetak di Kertas HVS Biasa", desc: "Berhenti membeli Lembar Jawaban khusus yang mahal. Cetak format LJK kami langsung dari printer sekolah ke kertas HVS standar." },
-              { icon: <ChartBar />, title: "Analisis Butir Soal & Santri", desc: "Algoritma kami otomatis mendeteksi soal mana yang terlalu sulit (daya pembeda) untuk bahan evaluasi mengajar Anda." },
-              { icon: <Users />, title: "Database Santri Terpusat", desc: "Import data santri dari Excel. Sekali upload, data bisa digunakan untuk semua jenis ujian dari semester ke semester." },
-              { icon: <ShieldCheck />, title: "Anti-Kecurangan (Multi-Kunci)", desc: "Buat soal Paket A, B, dan C. Sistem scanner akan otomatis mengenali kertas mana yang sedang diperiksa tanpa salah kunci." },
-              { icon: <CloudCheck />, title: "Ekspor Hasil ke Excel/PDF", desc: "Selesai koreksi, langsung unduh rekap nilai dalam format Excel yang siap diserahkan ke bagian akademik sekolah." }
+              { icon: <NotePencil />, title: "Koreksi Esai Cerdas", desc: "Sistem otomatis memotong (crop) tulisan tangan esai siswa. Anda bisa menilai di layar berdampingan dengan rubrik, tanpa repot membolak-balik kertas." },
+              { icon: <ChartBar />, title: "Analisis Evaluasi Detail", desc: "Sistem otomatis menghitung tingkat kesukaran, daya pembeda, grafik sebaran nilai, hingga mendaftar nama siswa yang butuh remedial." },
+              { icon: <FileText />, title: "Cetak di Kertas HVS Biasa", desc: "Berhenti membeli LJK khusus yang mahal. Cetak format template LJK kami langsung dari printer sekolah ke kertas HVS standar." },
+              { icon: <ShieldCheck />, title: "Anti-Kecurangan", desc: "Dukungan arsiran Kode Ujian. Scanner akan otomatis mengenali kertas paket soal mana yang sedang diperiksa tanpa salah kunci jawaban." },
+              { icon: <CloudCheck />, title: "Ekspor Master Excel/PDF", desc: "Selesai koreksi, langsung unduh rekap nilai (angka murni, remedial, dan pola 1/0) dalam format Excel multi-sheet untuk arsip akhir tahun." }
             ].map((fitur, idx) => (
               <div key={idx} className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 hover:border-blue-200 hover:bg-blue-50/30 hover:shadow-xl hover:-translate-y-1 transition-all group cursor-default">
                 <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm border border-slate-100 mb-6 group-hover:bg-blue-600 group-hover:text-white transition-all text-3xl">
@@ -207,10 +199,10 @@ export default function LandingPage() {
       {/* Target Audiens / Use Cases */}
       <section className="py-24 bg-slate-50">
         <div className="max-w-7xl mx-auto px-6 text-center">
-          <h3 className="text-3xl font-black text-slate-900 mb-12">Siapa yang Menggunakan FastTest?</h3>
+          <h3 className="text-3xl font-black text-slate-900 mb-12">Dipercaya oleh Ribuan Pendidik</h3>
           <div className="flex flex-wrap justify-center gap-6">
              {["Pondok Pesantren", "SD/SMP/SMA Islam", "Bimbingan Belajar", "Universitas", "Lembaga Kursus Bahasa"].map((user, i) => (
-               <span key={i} className="px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-full shadow-sm cursor-default hover:border-slate-300 transition-colors">
+               <span key={i} className="px-6 py-3 bg-white border border-slate-200 text-slate-700 font-bold rounded-full shadow-sm cursor-default hover:border-blue-300 hover:text-blue-700 transition-colors">
                   {user}
                </span>
              ))}
@@ -235,29 +227,29 @@ export default function LandingPage() {
                  <span className="text-4xl font-black text-slate-900">Gratis</span>
                </div>
                <ul className="space-y-4 mb-8 flex-1">
-                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-blue-600 shrink-0" /> Maksimal 100 Scan / Bulan</li>
-                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-blue-600 shrink-0" /> LJK Standar (50 Soal)</li>
-                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-blue-600 shrink-0" /> Analisis Dasar</li>
+                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-slate-400 shrink-0" /> Maksimal 100 Scan / Bulan</li>
+                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-slate-400 shrink-0" /> 1 Template LJK Standar</li>
+                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-slate-400 shrink-0" /> Analisis Dasar</li>
                </ul>
-               <button className="w-full py-4 bg-white border-2 border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-100 hover:border-slate-300 transition-all cursor-pointer">Daftar Gratis</button>
+               <button className="w-full py-4 bg-white border-2 border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-100 hover:border-slate-300 transition-all cursor-pointer active:scale-95">Daftar Gratis</button>
             </div>
 
             {/* Paket Pro (Highlight) */}
             <div className="p-8 bg-blue-600 rounded-[2.5rem] border-4 border-blue-100 shadow-2xl shadow-blue-200 transform md:-translate-y-4 flex flex-col relative hover:scale-[1.02] transition-all">
-               <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-full">Paling Populer</div>
+               <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-black uppercase tracking-widest px-4 py-1.5 rounded-full shadow-md">Paling Populer</div>
                <h4 className="text-xl font-black text-white mb-2">Pro Educator</h4>
                <p className="text-blue-200 text-sm mb-6">Untuk beban kerja sekolah standar.</p>
                <div className="mb-8 flex items-end gap-1">
                  <span className="text-4xl font-black text-white">Rp 49.000</span>
-                 <span className="text-blue-200 font-medium">/ bulan</span>
+                 <span className="text-blue-200 font-medium pb-1">/ bln</span>
                </div>
                <ul className="space-y-4 mb-8 flex-1">
                  <li className="flex gap-3 text-sm font-medium text-white"><CheckCircle size={20} className="text-emerald-400 shrink-0" /> Scan Tanpa Batas (Unlimited)</li>
-                 <li className="flex gap-3 text-sm font-medium text-white"><CheckCircle size={20} className="text-emerald-400 shrink-0" /> LJK Custom (S/d 100 Soal)</li>
+                 <li className="flex gap-3 text-sm font-medium text-white"><CheckCircle size={20} className="text-emerald-400 shrink-0" /> Template Custom + LJK Esai</li>
                  <li className="flex gap-3 text-sm font-medium text-white"><CheckCircle size={20} className="text-emerald-400 shrink-0" /> Ekspor Lengkap (Excel/PDF)</li>
                  <li className="flex gap-3 text-sm font-medium text-white"><CheckCircle size={20} className="text-emerald-400 shrink-0" /> Dukungan Prioritas WhatsApp</li>
                </ul>
-               <button className="w-full py-4 bg-white text-blue-600 font-black rounded-xl hover:bg-slate-50 transition-all shadow-lg cursor-pointer">Mulai Trial Pro</button>
+               <button className="w-full py-4 bg-white text-blue-600 font-black rounded-xl hover:bg-slate-50 transition-all shadow-lg cursor-pointer active:scale-95">Mulai Trial Pro</button>
             </div>
 
             {/* Paket Institusi */}
@@ -268,11 +260,11 @@ export default function LandingPage() {
                  <span className="text-3xl font-black text-slate-900">Hubungi Kami</span>
                </div>
                <ul className="space-y-4 mb-8 flex-1">
-                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-blue-600 shrink-0" /> Semua Fitur Pro</li>
-                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-blue-600 shrink-0" /> Multi-Akun Guru Terpusat</li>
-                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-blue-600 shrink-0" /> Custom Logo Kop Surat LJK</li>
+                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-indigo-600 shrink-0" /> Semua Fitur Pro</li>
+                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-indigo-600 shrink-0" /> Multi-Akun Guru Terpusat</li>
+                 <li className="flex gap-3 text-sm font-medium text-slate-700"><CheckCircle size={20} className="text-indigo-600 shrink-0" /> Custom Logo Kop Surat LJK</li>
                </ul>
-               <button className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors cursor-pointer">Kontak Tim Sales</button>
+               <button className="w-full py-4 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors cursor-pointer active:scale-95">Kontak Tim Sales</button>
             </div>
           </div>
         </div>
@@ -287,11 +279,12 @@ export default function LandingPage() {
           
           <div className="space-y-4">
              {[
-               { q: "Apakah saya perlu membeli kertas LJK khusus?", a: "Tidak. Keunggulan utama FastTest adalah Anda bisa mengunduh format LJK kami berformat PDF, lalu mencetaknya sendiri menggunakan kertas HVS biasa dan printer sekolah." },
-               { q: "Bagaimana jika kelas tidak ada sinyal internet?", a: "Aplikasi ini dirancang untuk bekerja secara Offline. Anda bisa terus memindai puluhan kertas di kelas, dan nilai akan otomatis tersimpan ke server saat HP Anda kembali terhubung ke Wi-Fi kantor." },
-               { q: "Bolehkah santri mengisi menggunakan pensil biasa atau pulpen?", a: "Sangat boleh. Algoritma kamera kami cukup sensitif untuk membaca penebalan dari pensil 2B, pulpen hitam, maupun spidol kecil, asalkan bulatannya tertutup dengan baik." },
+               { q: "Apakah saya perlu membeli kertas LJK khusus?", a: "Tidak. Keunggulan utama FastTest adalah Anda bisa mengunduh format template LJK kami (berbentuk PDF atau PNG), lalu mencetaknya sendiri menggunakan kertas HVS biasa dan printer sekolah." },
+               { q: "Bagaimana sistem FastTest mengoreksi soal esai?", a: "Kami menggunakan metode 'On-Screen Manual Grading'. Anda mencetak LJK dengan kotak esai. Saat kamera memindai kertas, sistem akan memotong (crop) area kotak tulisan siswa tersebut. Di dashboard, Anda bisa melihat foto tulisan mereka berdampingan dengan rubrik penilaian, lalu menginput nilainya tanpa harus membolak-balik kertas fisik." },
+               { q: "Bagaimana jika kelas tidak ada sinyal internet?", a: "Aplikasi ini dirancang untuk bekerja secara Offline. Anda bisa terus memindai puluhan kertas di dalam kelas, dan hasil koreksi akan otomatis tersinkronisasi ke server saat HP Anda kembali terhubung ke Wi-Fi." },
+               { q: "Bolehkah santri mengisi LJK menggunakan pensil biasa atau pulpen?", a: "Sangat boleh. Algoritma pendeteksi (*Computer Vision*) kami cukup sensitif untuk membaca penebalan dari pensil 2B, pulpen hitam, maupun spidol kecil, asalkan bulatan hitamnya cukup jelas." },
              ].map((faq, i) => (
-               <details key={i} className="group bg-slate-800 rounded-2xl border border-slate-700 p-6 [&_summary::-webkit-details-marker]:hidden cursor-pointer">
+               <details key={i} className="group bg-slate-800 rounded-2xl border border-slate-700 p-6 [&_summary::-webkit-details-marker]:hidden cursor-pointer hover:bg-slate-700/50 transition-colors">
                  <summary className="flex items-center justify-between text-lg font-bold">
                    {faq.q}
                    <span className="transition group-open:rotate-180">
@@ -312,8 +305,8 @@ export default function LandingPage() {
           <h2 className="text-4xl lg:text-5xl font-black text-white mb-8 leading-tight">
             Bersiap untuk Ujian Semester Depan?
           </h2>
-          <p className="text-blue-100 text-lg mb-10 max-w-2xl mx-auto">Tinggalkan tumpukan kertas dan lembur berjam-jam untuk mengoreksi. Coba FastTest gratis hari ini.</p>
-          <Link href="/login" className="inline-flex items-center gap-3 px-10 py-5 bg-white text-blue-600 font-black text-xl rounded-full hover:scale-105 transition-transform shadow-2xl cursor-pointer">
+          <p className="text-blue-100 text-lg mb-10 max-w-2xl mx-auto">Tinggalkan tumpukan kertas dan lembur berjam-jam untuk mengoreksi. Mulai kelola arsip, analisis soal, dan nilai esai dalam satu aplikasi cerdas.</p>
+          <Link href="/login" className="inline-flex items-center gap-3 px-10 py-5 bg-white text-blue-600 font-black text-xl rounded-full hover:scale-105 transition-transform shadow-2xl cursor-pointer active:scale-95">
             Buat Akun Sekarang <ArrowRight size={24} weight="bold" />
           </Link>
         </div>
@@ -326,7 +319,7 @@ export default function LandingPage() {
             <Scan size={24} weight="bold" className="text-blue-600" />
             <span className="font-black text-slate-900 text-lg">FastTest</span>
           </div>
-          <p className="text-slate-500 font-medium text-sm">
+          <p className="text-slate-500 font-medium text-sm text-center md:text-left">
             © {new Date().getFullYear()} Solusi Digital Edukasi oleh <span className="font-black text-slate-900">TarbiyahTech</span>.
           </p>
         </div>

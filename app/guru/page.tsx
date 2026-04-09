@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { 
   Scan, FileText, ChartBar, Student, Bell, UserCircle, 
-  RocketLaunch, Clock, CalendarCheck, TrendUp, Plus, CaretRight
+  RocketLaunch, Clock, CalendarCheck, TrendUp, Plus, CaretRight,
+  ClockCounterClockwise, CheckCircle, FilePdf, DownloadSimple
 } from "@phosphor-icons/react";
 
 export default function MainDashboard() {
@@ -36,27 +37,27 @@ export default function MainDashboard() {
       {/* ========================================= */}
       {/* 1. TOP NAVIGATION BAR (GLASSMORPHISM)       */}
       {/* ========================================= */}
-      <nav className="sticky top-0 z-50 bg-white/70 backdrop-blur-lg border-b border-slate-200/50">
+      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30 text-white font-black">
-              T
+              F
             </div>
             <span className="font-black text-xl tracking-tight text-slate-800">
-              Tarbiyah<span className="text-blue-600">Tech</span>
+              Fast<span className="text-blue-600">Test</span>
             </span>
           </div>
 
           <div className="flex items-center gap-4">
             <button className="relative p-2 text-slate-400 hover:text-blue-600 transition-colors">
               <Bell size={24} weight="fill" />
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
             </button>
             <div className="h-8 w-px bg-slate-200"></div>
-            <button className="flex items-center gap-2 group">
+            <button className="flex items-center gap-2 group cursor-pointer">
               <div className="text-right hidden md:block">
-                <p className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition-colors">Ustadz Ahmad</p>
-                <p className="text-[10px] font-bold text-slate-400">Guru Mapel</p>
+                <p className="text-xs font-black text-slate-800 group-hover:text-blue-600 transition-colors">Ustadz Budi Santoso</p>
+                <p className="text-[10px] font-bold text-slate-400">Pengajar Bahasa Arab</p>
               </div>
               <UserCircle size={36} weight="fill" className="text-slate-300 group-hover:text-blue-600 transition-colors" />
             </button>
@@ -69,33 +70,33 @@ export default function MainDashboard() {
       {/* ========================================= */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         
-        <div className="bg-gradient-to-br from-blue-700 via-blue-600 to-indigo-800 rounded-[2rem] p-8 md:p-12 text-white shadow-2xl shadow-blue-900/20 relative overflow-hidden mb-10">
+        <div className="bg-gradient-to-br from-[#1e3a8a] via-[#1d4ed8] to-[#312e81] rounded-[2rem] p-8 md:p-12 text-white shadow-2xl shadow-blue-900/20 relative overflow-hidden mb-10">
           {/* Dekorasi Abstrak Latar Belakang */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-500/20 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/20 rounded-full blur-2xl translate-y-1/3 -translate-x-1/4"></div>
 
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
             <div>
-              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-xs font-bold border border-white/20 mb-6">
-                <Clock size={16} /> {currentTime} WIB &bull; {new Date().toLocaleDateString("id-ID", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full text-xs font-bold border border-white/20 mb-6 shadow-sm">
+                <Clock size={16} weight="bold"/> {currentTime} WIB &bull; {new Date().toLocaleDateString("id-ID", { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </div>
               <h1 className="text-4xl md:text-5xl font-black mb-2 tracking-tight">
-                {greeting}, Ahmad!
+                {greeting}, Ustadz Budi!
               </h1>
-              <p className="text-blue-100 font-medium text-lg max-w-lg">
-                Siap untuk mengevaluasi hasil belajar hari ini? Sistem OMR canggih TarbiyahTech siap membantu Anda.
+              <p className="text-blue-100 font-medium text-lg max-w-lg leading-relaxed">
+                Siap untuk mengevaluasi hasil belajar santri hari ini? Sistem OMR dan Analisis Otomatis siap membantu Anda.
               </p>
             </div>
 
             {/* Quick Stats Banner */}
-            <div className="flex gap-4 bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/20">
+            <div className="flex gap-4 bg-white/10 backdrop-blur-md p-5 rounded-3xl border border-white/20 shadow-lg shrink-0">
               <div className="px-4 border-r border-white/20 text-center">
-                <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Total Santri</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1 flex items-center justify-center gap-1"><Student size={14}/> Total Santri</p>
                 <p className="text-3xl font-black">120</p>
               </div>
               <div className="px-4 text-center">
-                <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1">Kertas Di-Scan</p>
-                <p className="text-3xl font-black text-green-300">845</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-blue-200 mb-1 flex items-center justify-center gap-1"><Scan size={14}/> Kertas Di-Scan</p>
+                <p className="text-3xl font-black text-emerald-400">845</p>
               </div>
             </div>
           </div>
@@ -106,59 +107,60 @@ export default function MainDashboard() {
         {/* ========================================= */}
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
-            <RocketLaunch size={24} className="text-blue-600" /> Modul Utama
+            <RocketLaunch size={24} className="text-blue-600" weight="fill"/> Akses Cepat
           </h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           
           {/* MENU 1: GENERATOR LJK */}
-          <Link href="/guru/ujian/buat" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-500 hover:-translate-y-1 transition-all duration-300">
+          <Link href="/guru/ujian/buat" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-blue-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
             <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors">
               <FileText size={28} weight="fill" className="text-blue-600 group-hover:text-white transition-colors" />
             </div>
             <h3 className="text-lg font-black text-slate-800 mb-2">Buat Ujian & LJK</h3>
-            <p className="text-sm font-medium text-slate-500 mb-6">Desain dan cetak kertas Lembar Jawaban Komputer (LJK) otomatis.</p>
+            <p className="text-sm font-medium text-slate-500 mb-6">Desain LJK dengan fitur arsiran kode ujian dan kotak esai.</p>
             <div className="flex items-center text-xs font-bold text-blue-600 group-hover:gap-2 transition-all">
               Buka Generator <CaretRight size={14} weight="bold" />
             </div>
           </Link>
 
           {/* MENU 2: SCANNER PINTAR */}
-          {/* Default mengarah ke scan ujian bahasa arab sebagai contoh */}
-          <Link href="/guru/scan?namaUjian=Pemindaian+Cepat" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-green-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
-            {/* Pinggir hijau efek canggih */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-green-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
-            
-            <div className="w-14 h-14 bg-green-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-green-600 transition-colors">
-              <Scan size={28} weight="fill" className="text-green-600 group-hover:text-white transition-colors" />
+          <Link href="/guru/scan" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
+            <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase px-2 py-1 rounded border border-emerald-200 animate-pulse">Auto Detect</div>
+            <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-emerald-600 transition-colors">
+              <Scan size={28} weight="fill" className="text-emerald-600 group-hover:text-white transition-colors" />
             </div>
             <h3 className="text-lg font-black text-slate-800 mb-2">Scanner Pintar</h3>
-            <p className="text-sm font-medium text-slate-500 mb-6">Koreksi LJK dengan kamera HP. Super cepat dan akurat ala QRIS.</p>
-            <div className="flex items-center text-xs font-bold text-green-600 group-hover:gap-2 transition-all">
+            <p className="text-sm font-medium text-slate-500 mb-6">Koreksi ratusan LJK dengan kamera secara *offline* & instan.</p>
+            <div className="flex items-center text-xs font-bold text-emerald-600 group-hover:gap-2 transition-all">
               Buka Kamera <CaretRight size={14} weight="bold" />
             </div>
           </Link>
 
           {/* MENU 3: ARSIP & DASHBOARD NILAI */}
-          <Link href="/guru/arsip" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-purple-500 hover:-translate-y-1 transition-all duration-300">
+          <Link href="/guru/arsip" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-purple-500/10 hover:border-purple-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-purple-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
             <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors">
               <ChartBar size={28} weight="fill" className="text-purple-600 group-hover:text-white transition-colors" />
             </div>
             <h3 className="text-lg font-black text-slate-800 mb-2">Arsip & Analisis</h3>
-            <p className="text-sm font-medium text-slate-500 mb-6">Kelola nilai siswa, cetak laporan Excel & PDF, dan lihat bukti foto.</p>
+            <p className="text-sm font-medium text-slate-500 mb-6">Kelola nilai, lihat tingkat kesukaran soal, dan cetak laporan Excel.</p>
             <div className="flex items-center text-xs font-bold text-purple-600 group-hover:gap-2 transition-all">
               Lihat Laporan <CaretRight size={14} weight="bold" />
             </div>
           </Link>
 
           {/* MENU 4: KELOLA SANTRI */}
-          <Link href="/guru/santri" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-orange-500 hover:-translate-y-1 transition-all duration-300">
+          <Link href="/guru/santri" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-orange-500/10 hover:border-orange-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-orange-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
             <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-orange-500 transition-colors">
               <Student size={28} weight="fill" className="text-orange-500 group-hover:text-white transition-colors" />
             </div>
             <h3 className="text-lg font-black text-slate-800 mb-2">Kelola Santri</h3>
-            <p className="text-sm font-medium text-slate-500 mb-6">Manajemen data induk siswa, kenaikan kelas, dan import data.</p>
+            <p className="text-sm font-medium text-slate-500 mb-6">Manajemen database siswa, cetak kartu ujian, dan daftar NIS.</p>
             <div className="flex items-center text-xs font-bold text-orange-500 group-hover:gap-2 transition-all">
               Kelola Data <CaretRight size={14} weight="bold" />
             </div>
@@ -171,65 +173,111 @@ export default function MainDashboard() {
         {/* ========================================= */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Ujian Aktif / Mendatang */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center justify-between mb-4">
+          {/* Aktivitas Terkini & Log */}
+          <div className="lg:col-span-2 space-y-6">
+            
+            <div className="flex items-center justify-between">
               <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
-                <CalendarCheck size={20} className="text-blue-600" /> Ujian Aktif
+                <ClockCounterClockwise size={20} className="text-blue-600" weight="bold"/> Aktivitas Terkini
               </h2>
-              <Link href="/guru/ujian/buat" className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-                <Plus size={12} weight="bold" /> Ujian Baru
+              <Link href="/guru/arsip" className="text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors">
+                Lihat Semua
               </Link>
             </div>
-            
+
             <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-              <div className="p-4 hover:bg-slate-50 border-b border-slate-100 flex items-center justify-between transition-colors group cursor-pointer">
-                <div>
-                  <h4 className="font-black text-slate-800 group-hover:text-blue-600 transition-colors">Ujian Akhir Semester: Bahasa Arab</h4>
-                  <p className="text-xs font-bold text-slate-400 mt-1">Kelas XII IPA & IPS &bull; 40 Soal</p>
+              
+              {/* Item Aktivitas 1 */}
+              <div className="p-5 border-b border-slate-100 flex items-center gap-4 hover:bg-slate-50 transition-colors group cursor-default">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <CheckCircle size={24} weight="fill" />
                 </div>
-                <Link href="/guru/scan?namaUjian=Bahasa+Arab" className="px-4 py-2 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl hover:bg-blue-600 hover:text-white transition-colors">
-                  Mulai Scan
-                </Link>
-              </div>
-              <div className="p-4 hover:bg-slate-50 flex items-center justify-between transition-colors group cursor-pointer">
-                <div>
-                  <h4 className="font-black text-slate-800 group-hover:text-blue-600 transition-colors">Ulangan Harian: Fiqih</h4>
-                  <p className="text-xs font-bold text-slate-400 mt-1">Kelas X IPA 1 &bull; 25 Soal</p>
+                <div className="flex-1">
+                  <p className="text-sm font-black text-slate-800 group-hover:text-blue-600 transition-colors">Selesai Memindai: Ujian Akhir B. Arab</p>
+                  <p className="text-xs font-bold text-slate-400 mt-0.5">Berhasil memindai 30 lembar LJK kelas XII IPA.</p>
                 </div>
-                <Link href="/guru/scan?namaUjian=Ulangan+Fiqih" className="px-4 py-2 bg-blue-50 text-blue-600 font-bold text-xs rounded-xl hover:bg-blue-600 hover:text-white transition-colors">
-                  Mulai Scan
-                </Link>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Hari Ini</p>
+                  <Link href="/guru/arsip" className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 font-bold text-xs rounded-lg transition-colors">Buka Arsip</Link>
+                </div>
               </div>
+
+              {/* Item Aktivitas 2 */}
+              <div className="p-5 border-b border-slate-100 flex items-center gap-4 hover:bg-slate-50 transition-colors group cursor-default">
+                <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <FilePdf size={24} weight="fill" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-black text-slate-800 group-hover:text-blue-600 transition-colors">Mengunduh Analisis: Tryout Fiqih</p>
+                  <p className="text-xs font-bold text-slate-400 mt-0.5">Laporan PDF Evaluasi Butir Soal berhasil diekspor.</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Kemarin</p>
+                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle weight="fill"/> Selesai</span>
+                </div>
+              </div>
+
+              {/* Item Aktivitas 3 */}
+              <div className="p-5 flex items-center gap-4 hover:bg-slate-50 transition-colors group cursor-default">
+                <div className="w-12 h-12 rounded-full bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                  <FileText size={24} weight="fill" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-black text-slate-800 group-hover:text-blue-600 transition-colors">Membuat Template LJK Baru</p>
+                  <p className="text-xs font-bold text-slate-400 mt-0.5">Template "Ulangan Harian Nahwu" (30 PG + Esai).</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">2 Hari Lalu</p>
+                  <Link href="/guru/ujian/buat" className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:border-blue-400 hover:text-blue-600 font-bold text-xs rounded-lg transition-colors">Edit Ulang</Link>
+                </div>
+              </div>
+
             </div>
           </div>
 
-          {/* Ringkasan Analisis Singkat */}
+          {/* Ringkasan Analisis Singkat (Insight Cepat) */}
           <div>
             <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 mb-4">
-              <TrendUp size={20} className="text-blue-600" /> Insight Cepat
+              <TrendUp size={20} className="text-blue-600" weight="bold"/> Insight Kelas
             </h2>
-            <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10"><ChartBar size={100} weight="fill" /></div>
+            
+            <div className="bg-gradient-to-b from-slate-800 to-slate-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden h-[330px] flex flex-col justify-between">
+              
+              {/* Dekorasi Chart Abstrak di Background */}
+              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                <ChartBar size={180} weight="fill" className="transform translate-x-10 -translate-y-10" />
+              </div>
               
               <div className="relative z-10">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Performa Rata-Rata</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rata-Rata Kelas (UAS Terakhir)</p>
+                  <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded text-[9px] font-black flex items-center gap-1"><TrendUp weight="bold"/> Naik</span>
+                </div>
+                
                 <div className="flex items-end gap-2 mb-6">
-                  <span className="text-5xl font-black text-green-400">78</span>
-                  <span className="text-sm font-bold text-slate-400 mb-1.5">/ 100</span>
+                  <span className="text-6xl font-black text-white tracking-tighter">78</span>
+                  <span className="text-sm font-bold text-slate-400 mb-2">/ 100</span>
+                </div>
+
+                {/* Mini Bar Chart (Visualisasi Murni CSS) */}
+                <div className="h-12 flex items-end gap-1.5 mb-6 border-b border-slate-700 pb-1">
+                  <div className="w-full bg-blue-500 rounded-t-sm" style={{height: '40%'}} title="A: 15%"></div>
+                  <div className="w-full bg-emerald-500 rounded-t-sm" style={{height: '100%'}} title="B: 45%"></div>
+                  <div className="w-full bg-yellow-500 rounded-t-sm" style={{height: '70%'}} title="C: 30%"></div>
+                  <div className="w-full bg-red-500 rounded-t-sm" style={{height: '30%'}} title="D: 10%"></div>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
-                    <p className="text-[10px] font-bold text-slate-300 uppercase">Nilai Tertinggi Bulan Ini</p>
-                    <p className="font-black text-sm">Siti Aminah (92) - Bahasa Arab</p>
-                  </div>
-                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm border border-white/10">
-                    <p className="text-[10px] font-bold text-slate-300 uppercase">Soal Paling Sulit (Fiqih)</p>
-                    <p className="font-black text-sm text-orange-300">Nomor 12 (65% Siswa Salah)</p>
+                  <div className="bg-white/5 hover:bg-white/10 transition-colors rounded-xl p-3 backdrop-blur-sm border border-white/10 flex justify-between items-center cursor-default">
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Siswa Remedial</p>
+                      <p className="font-black text-sm text-red-400">4 Santri (10%)</p>
+                    </div>
+                    <Link href="/guru/arsip" className="p-1.5 bg-white/10 rounded-lg text-white hover:bg-blue-500 transition-colors"><CaretRight weight="bold"/></Link>
                   </div>
                 </div>
               </div>
+
             </div>
           </div>
 
@@ -238,8 +286,8 @@ export default function MainDashboard() {
 
       {/* FOOTER */}
       <footer className="border-t border-slate-200 bg-white mt-12 py-8 text-center">
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-          Sistem Informasi OMR &copy; {new Date().getFullYear()} TarbiyahTech.
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1">
+          Sistem Informasi OMR &copy; {new Date().getFullYear()} <span className="font-black text-slate-600">TarbiyahTech</span>.
         </p>
       </footer>
 
