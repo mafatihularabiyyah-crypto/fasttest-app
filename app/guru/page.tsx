@@ -5,7 +5,8 @@ import Link from "next/link";
 import { 
   Scan, FileText, ChartBar, Student, Bell, UserCircle, 
   RocketLaunch, Clock, CalendarCheck, TrendUp, Plus, CaretRight,
-  ClockCounterClockwise, CheckCircle, FilePdf, DownloadSimple
+  ClockCounterClockwise, CheckCircle, FilePdf, DownloadSimple,
+  Desktop
 } from "@phosphor-icons/react";
 
 export default function MainDashboard() {
@@ -38,7 +39,7 @@ export default function MainDashboard() {
       {/* 1. TOP NAVIGATION BAR (GLASSMORPHISM)       */}
       {/* ========================================= */}
       <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-[90rem] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30 text-white font-black">
               F
@@ -68,7 +69,7 @@ export default function MainDashboard() {
       {/* ========================================= */}
       {/* 2. HERO SECTION (SAPAAN & STATISTIK CEPAT)  */}
       {/* ========================================= */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-[90rem] mx-auto px-6 py-8">
         
         <div className="bg-gradient-to-br from-[#1e3a8a] via-[#1d4ed8] to-[#312e81] rounded-[2rem] p-8 md:p-12 text-white shadow-2xl shadow-blue-900/20 relative overflow-hidden mb-10">
           {/* Dekorasi Abstrak Latar Belakang */}
@@ -84,7 +85,7 @@ export default function MainDashboard() {
                 {greeting}, Ustadz Budi!
               </h1>
               <p className="text-blue-100 font-medium text-lg max-w-lg leading-relaxed">
-                Siap untuk mengevaluasi hasil belajar santri hari ini? Sistem OMR dan Analisis Otomatis siap membantu Anda.
+                Siap untuk mengevaluasi hasil belajar santri hari ini? Sistem OMR dan CBT Online siap membantu Anda.
               </p>
             </div>
 
@@ -111,7 +112,8 @@ export default function MainDashboard() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        {/* Grid diperbarui menjadi 5 kolom untuk mengakomodasi CBT */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-12">
           
           {/* MENU 1: GENERATOR LJK */}
           <Link href="/guru/ujian/buat" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
@@ -119,14 +121,27 @@ export default function MainDashboard() {
             <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors">
               <FileText size={28} weight="fill" className="text-blue-600 group-hover:text-white transition-colors" />
             </div>
-            <h3 className="text-lg font-black text-slate-800 mb-2">Buat Ujian & LJK</h3>
-            <p className="text-sm font-medium text-slate-500 mb-6">Desain LJK dengan fitur arsiran kode ujian dan kotak esai.</p>
+            <h3 className="text-lg font-black text-slate-800 mb-2">Buat Ujian LJK</h3>
+            <p className="text-sm font-medium text-slate-500 mb-6">Desain LJK cetak dengan fitur arsiran kode ujian.</p>
             <div className="flex items-center text-xs font-bold text-blue-600 group-hover:gap-2 transition-all">
               Buka Generator <CaretRight size={14} weight="bold" />
             </div>
           </Link>
 
-          {/* MENU 2: SCANNER PINTAR */}
+          {/* MENU 2: GENERATOR CBT (FITUR BARU) */}
+          <Link href="/guru/ujian/cbt" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-indigo-500/10 hover:border-indigo-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
+            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-indigo-600 transition-colors">
+              <Desktop size={28} weight="fill" className="text-indigo-600 group-hover:text-white transition-colors" />
+            </div>
+            <h3 className="text-lg font-black text-slate-800 mb-2">Ujian CBT Online</h3>
+            <p className="text-sm font-medium text-slate-500 mb-6">Buat soal digital & bagikan token ujian ke siswa.</p>
+            <div className="flex items-center text-xs font-bold text-indigo-600 group-hover:gap-2 transition-all">
+              Buat Soal CBT <CaretRight size={14} weight="bold" />
+            </div>
+          </Link>
+
+          {/* MENU 3: SCANNER PINTAR */}
           <Link href="/guru/scan" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
             <div className="absolute top-4 right-4 bg-emerald-100 text-emerald-700 text-[9px] font-black uppercase px-2 py-1 rounded border border-emerald-200 animate-pulse">Auto Detect</div>
@@ -134,33 +149,33 @@ export default function MainDashboard() {
               <Scan size={28} weight="fill" className="text-emerald-600 group-hover:text-white transition-colors" />
             </div>
             <h3 className="text-lg font-black text-slate-800 mb-2">Scanner Pintar</h3>
-            <p className="text-sm font-medium text-slate-500 mb-6">Koreksi ratusan LJK dengan kamera secara *offline* & instan.</p>
+            <p className="text-sm font-medium text-slate-500 mb-6">Koreksi ratusan LJK dengan kamera secara *offline*.</p>
             <div className="flex items-center text-xs font-bold text-emerald-600 group-hover:gap-2 transition-all">
               Buka Kamera <CaretRight size={14} weight="bold" />
             </div>
           </Link>
 
-          {/* MENU 3: ARSIP & DASHBOARD NILAI */}
+          {/* MENU 4: ARSIP & DASHBOARD NILAI */}
           <Link href="/guru/arsip" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-purple-500/10 hover:border-purple-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-purple-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
             <div className="w-14 h-14 bg-purple-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors">
               <ChartBar size={28} weight="fill" className="text-purple-600 group-hover:text-white transition-colors" />
             </div>
             <h3 className="text-lg font-black text-slate-800 mb-2">Arsip & Analisis</h3>
-            <p className="text-sm font-medium text-slate-500 mb-6">Kelola nilai, lihat tingkat kesukaran soal, dan cetak laporan Excel.</p>
+            <p className="text-sm font-medium text-slate-500 mb-6">Kelola nilai, lihat tingkat kesukaran, dan ekspor Excel.</p>
             <div className="flex items-center text-xs font-bold text-purple-600 group-hover:gap-2 transition-all">
               Lihat Laporan <CaretRight size={14} weight="bold" />
             </div>
           </Link>
 
-          {/* MENU 4: KELOLA SANTRI */}
+          {/* MENU 5: KELOLA SANTRI */}
           <Link href="/guru/santri" className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:shadow-orange-500/10 hover:border-orange-500 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-orange-500 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div>
             <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-orange-500 transition-colors">
               <Student size={28} weight="fill" className="text-orange-500 group-hover:text-white transition-colors" />
             </div>
             <h3 className="text-lg font-black text-slate-800 mb-2">Kelola Santri</h3>
-            <p className="text-sm font-medium text-slate-500 mb-6">Manajemen database siswa, cetak kartu ujian, dan daftar NIS.</p>
+            <p className="text-sm font-medium text-slate-500 mb-6">Manajemen database siswa, cetak kartu, & daftar NIS.</p>
             <div className="flex items-center text-xs font-bold text-orange-500 group-hover:gap-2 transition-all">
               Kelola Data <CaretRight size={14} weight="bold" />
             </div>
@@ -213,7 +228,7 @@ export default function MainDashboard() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Kemarin</p>
-                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle weight="fill"/> Selesai</span>
+                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 justify-end"><CheckCircle weight="fill"/> Selesai</span>
                 </div>
               </div>
 

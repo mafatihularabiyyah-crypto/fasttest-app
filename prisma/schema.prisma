@@ -1,0 +1,122 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==========================================
+// 1. PENGGUNA (GURU & SANTRI)
+// ==========================================
+
+model Guru {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  nama      String   // cth: "Ustadz Budi Santoso"
+  mapel     String?  // cth: "Pengajar Bahasa Arab"
+  createdAt DateTime @default(now())
+
+  ujian     Ujian[]
+}
+
+model Santri {
+  id        String   @id @default(uuid())
+  nis       String   @unique
+  nama      String
+  gender    String   // "L" atau "P"
+  kelas     String   // cth: "X IPA 1"
+  status    String   @default("Aktif") // "Aktif", "Lulus", "Pindah", "Drop Out"
+  createdAt DateTime @default(now())
+
+  hasilUjian HasilUjian[]
+}
+
+// ==========================================
+// 2. MASTER UJIAN (FOLDER / LJK / CBT)
+// ==========================================
+
+model Ujian {
+  id          String   @id @default(uuid())
+  guruId      String
+  namaUjian   String   // cth: "Ujian Akhir B. Arab"
+  tipe        String   // cth: "UH", "UTS", "UAS", "Tryout", "Tugas"
+  metode      String   @default("LJK") // "LJK" atau "CBT"
+  kelas       String   // cth: "XII IPA"
+  tanggal     DateTime @default(now())
+  
+  // Khusus CBT
+  token       String?  @unique
+  durasi      Int?     @default(90) // Menit
+  
+  // Khusus Arsip LJK
+  linkSoal    String?  // cth: Link Google Drive
+  
+  createdAt   DateTime @default(now())
+
+  guru        Guru         @relation(fields: [guruId], references: [id], onDelete: Cascade)
+  soal        Soal[]
+  hasilUjian  HasilUjian[]
+}
+
+// ==========================================
+// 3. BANK SOAL & OPSI (CBT / KUNCI JAWABAN LJK)
+// ==========================================
+
+model Soal {
+  id          String   @id @default(uuid())
+  ujianId     String
+  nomor       Int
+  tipeSoal    String   // "pg", "kompleks", "bs", "angka14"
+  teksSoal    String?  // Kosong jika murni LJK Offline
+  
+  ujian       Ujian    @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  opsi        Opsi[]
+}
+
+model Opsi {
+  id          String   @id @default(uuid())
+  soalId      String
+  label       String?  // "A", "B", "C", dll
+  teksOpsi    String?  
+  isCorrect   Boolean  @default(false)
+  points      Float    @default(0)
+  
+  soal        Soal     @relation(fields: [soalId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// 4. HASIL SCAN LJK / SUBMIT CBT (ARSIP)
+// ==========================================
+
+model HasilUjian {
+  id            String   @id @default(uuid())
+  ujianId       String
+  santriId      String
+  
+  // Analisis Singkat
+  benar         Int      @default(0)
+  salah         Int      @default(0)
+  kosong        Int      @default(0)
+  
+  // Nilai
+  nilaiMurni    Float    @default(0)
+  nilaiRemedial String?  // Disimpan sebagai String krn di UI bisa "-" atau teks
+  nilaiEsai     String?  
+  
+  // Data Mentah
+  answersJson   String   // Array jawaban siswa (cth: "['A', 'B', '-', 'D']")
+  
+  createdAt     DateTime @default(now())
+
+  ujian         Ujian    @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  santri        Santri   @relation(fields: [santriId], references: [id], onDelete: Cascade)
+
+  // 1 Santri hanya bisa submit 1 kali di ujian yang sama
+  @@unique([ujianId, santriId])
+}

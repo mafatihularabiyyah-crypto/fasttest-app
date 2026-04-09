@@ -1,172 +1,182 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  EnvelopeSimple,
-  LockKey,
-  Eye,
-  EyeClosed,
-  SignIn,
-  Desktop,
-} from "@phosphor-icons/react/dist/ssr";
+import { Eye, EyeClosed, Check } from "@phosphor-icons/react";
 
-export default function GuruLoginPage() {
+export default function ElegantBlueLoginPage() {
+  const router = useRouter();
+  
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberEmail, setRememberEmail] = useState(true);
+  const [remember, setRemember] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Simbol Logam Abstrak Perak Base64 darurat (Fallback jika gambar tidak ada)
-  const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJTSURBVHgB7d0xbhNREIDh90IsiYIuDR0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDR0XoKInpKQEDX0XoKKf/R9fA/E705cAAAAASUVORK5CYII=";
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    // Simulasi proses Login
+    setTimeout(() => {
+      router.push("/guru");
+    }, 1500);
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans flex relative overflow-hidden">
+    // Background utama: Midnight Blue sangat gelap
+    <div className="min-h-screen bg-[#070b19] flex items-center justify-center p-4 sm:p-8 font-sans selection:bg-cyan-400 selection:text-cyan-950 relative overflow-hidden">
       
       {/* ========================================= */}
-      {/* Seksi Kiri - Banner (Gradient & Kosmik)  */}
+      {/* CAHAYA AMBIENT (GLOWING ORBS)               */}
       {/* ========================================= */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden bg-gradient-to-br from-[#1e3a8a] to-[#312e81]">
-        {/* Efek Kosmik Abstrak & Garis Konstelasi */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 opacity-20"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-900/10 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4 opacity-20"></div>
-        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
-          backgroundImage: "radial-gradient(circle at center, #fff 1px, transparent 1px)",
-          backgroundSize: "24px 24px",
-        }}></div>
+      <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] bg-blue-600 rounded-full blur-[120px] opacity-30 pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-5%] w-[600px] h-[600px] bg-cyan-500 rounded-full blur-[150px] opacity-20 pointer-events-none"></div>
 
-        {/* Logo FastTest */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 font-black text-2xl shadow-lg shadow-blue-500/30">
-            F
+      {/* Main Container Window (Glassmorphism) */}
+      <div className="w-full max-w-6xl bg-[#111827]/40 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col lg:flex-row overflow-hidden relative min-h-[85vh] border border-white/10">
+        
+        {/* ========================================= */}
+        {/* SISI KIRI: BRANDING & VISUAL BIRU MODERN    */}
+        {/* ========================================= */}
+        <div className="lg:w-[55%] relative p-10 lg:p-16 flex flex-col justify-end min-h-[40vh] lg:min-h-full overflow-hidden border-r border-white/5">
+          
+          {/* Ilustrasi Bentuk Abstrak Melengkung Khas Biru/Cyan */}
+          <div className="absolute top-[-20%] left-[-20%] w-[120%] h-[120%] pointer-events-none">
+            {/* Layer 1 (Cyan Terang) */}
+            <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full shadow-[0_10px_40px_rgba(6,182,212,0.3)] transform -translate-x-1/4 -translate-y-1/4"></div>
+            {/* Layer 2 (Blue Medium) */}
+            <div className="absolute top-[12%] left-[12%] w-[420px] h-[420px] bg-gradient-to-br from-blue-500 to-blue-700 rounded-full shadow-[0_10px_40px_rgba(59,130,246,0.3)] transform -translate-x-1/4 -translate-y-1/4"></div>
+            {/* Layer 3 (Navy Dark) */}
+            <div className="absolute top-[19%] left-[19%] w-[390px] h-[390px] bg-gradient-to-br from-blue-800 to-indigo-900 rounded-full shadow-[0_10px_40px_rgba(30,58,138,0.5)] transform -translate-x-1/4 -translate-y-1/4"></div>
           </div>
-          <span className="font-black text-3xl tracking-tight text-white">
-            Fast<span className="text-blue-300">Test</span>
-          </span>
-        </div>
 
-        {/* Teks Sambutan */}
-        <div className="relative z-10 mb-10 mt-20">
-          <h1 className="text-4xl md:text-5xl font-black text-white mb-6 leading-tight tracking-tight shadow-white/10">
-            Selamat Datang <br/> Kembali, Pendidik!
-          </h1>
-          <p className="text-blue-100 font-medium text-xl leading-relaxed max-w-xl opacity-90">
-            Kelola ujian, pindai ratusan LJK secara instan, dan pantau perkembangan nilai siswa Anda dalam satu platform cerdas.
-          </p>
-        </div>
+          <div className="relative z-10 mt-auto">
+            {/* Logo Group */}
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-cyan-400 font-black text-3xl border border-white/20 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+                F
+              </div>
+              <div>
+                <h1 className="font-black text-3xl tracking-wide text-white flex items-baseline gap-1">
+                  FASTTEST<span className="text-xs font-normal align-top text-cyan-400">&trade;</span>
+                </h1>
+                <p className="text-xs text-blue-300 font-medium tracking-widest uppercase mt-0.5">Inovasi Evaluasi Anda</p>
+              </div>
+            </div>
 
-        {/* Simbol Logam & Teks Bergabung */}
-        <div className="relative z-10 flex items-end gap-6 pt-10 border-t border-white/10 mt-auto">
-          <div className="w-32 h-32 relative shrink-0">
-            {/* Placeholder gambar simbol logam abstrak perak */}
-            <div className="absolute inset-2 bg-gradient-to-b from-white to-white/10 rounded-full flex items-center justify-center border-4 border-white/30 shadow-lg shadow-white/10 relative z-10 backdrop-blur-sm">
-              <img src={LOGO_BASE64} alt="Symbol" className="max-h-16 object-contain opacity-70" />
+            <p className="text-white text-xl lg:text-2xl font-medium leading-relaxed max-w-lg mb-10 text-slate-300">
+              Selamat datang kembali! Akses semua alat evaluasi modern Anda: LJK Generator, Auto-Scanner, CBT, dan Analisis Nilai.
+            </p>
+
+            <div className="flex flex-wrap gap-4">
+              <button className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-xl transition-all backdrop-blur-sm shadow-lg">
+                Pelajari Lebih Lanjut
+              </button>
+              <button className="px-6 py-3 bg-cyan-500/10 border-2 border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-cyan-950 font-bold rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_25px_rgba(6,182,212,0.5)]">
+                Jelajahi Fitur LJK
+              </button>
             </div>
           </div>
-          <p className="text-sm font-bold text-blue-200 tracking-wide pb-4">
-            Bergabung dengan 10.000+ Guru lainnya.
-          </p>
         </div>
-      </div>
 
-      {/* ========================================= */}
-      {/* Seksi Kanan - Form Login (Glassmorphism)   */}
-      {/* ========================================= */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 relative z-10 bg-gradient-to-br from-slate-50 to-indigo-50/50 selection:bg-cyan-200">
-        {/* Bentuk geometris bercahaya tersebar lembut */}
-        <div className="absolute top-[20%] right-[10%] w-64 h-64 bg-teal-200/30 rounded-full blur-3xl pointer-events-none opacity-60"></div>
-        <div className="absolute bottom-[20%] left-[10%] w-48 h-48 bg-purple-200/30 rounded-full blur-3xl pointer-events-none opacity-60"></div>
-
-        {/* Panel Kartu Login Glassmorphism */}
-        <div className="w-full max-w-md bg-white/20 p-8 sm:p-10 rounded-[2.5rem] shadow-2xl backdrop-blur-xl border border-white/10 relative z-10 hover:shadow-cyan-100/30 transition-shadow duration-300">
+        {/* ========================================= */}
+        {/* SISI KANAN: FORM LOGIN (FROSTED GLASS)      */}
+        {/* ========================================= */}
+        <div className="lg:w-[45%] p-6 lg:p-12 flex items-center justify-center relative z-10">
           
-          {/* Judul & Sambutan */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Masuk Akun</h2>
-            <p className="text-sm font-bold text-slate-500 leading-relaxed">Silakan masukkan email dan kata sandi Anda.</p>
-          </div>
+          <div className="w-full max-w-[420px]">
+            
+            <div className="mb-10 text-center lg:text-left">
+              <h2 className="text-3xl font-bold text-white mb-2">
+                Masuk Akun
+              </h2>
+              <p className="text-sm text-blue-200/70">Silakan masukkan kredensial Anda untuk melanjutkan.</p>
+            </div>
 
-          {/* Form Login */}
-          <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-            {/* Input Email */}
-            <div className="space-y-2 relative">
-              <label className="text-xs font-black uppercase tracking-widest text-slate-500 ml-1">Email</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <EnvelopeSimple size={20} className="text-slate-400" weight="bold" />
-                </div>
+            <form onSubmit={handleLogin} className="space-y-6">
+              
+              {/* Email Input */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-blue-200/80 ml-1 uppercase tracking-wider">Alamat Email</label>
                 <input 
                   type="email" 
-                  placeholder="Contoh: guru@sekolah.com"
-                  className="w-full pl-12 pr-4 py-4 bg-white/40 border border-white/30 rounded-2xl font-bold text-slate-800 outline-none focus:bg-white focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10 transition-all placeholder:text-slate-400 shadow-sm"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="guru@sekolah.com"
+                  className="w-full px-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder:text-white/20 outline-none focus:border-cyan-400 focus:bg-white/10 focus:ring-4 focus:ring-cyan-500/10 transition-all text-sm shadow-inner"
+                  required
                 />
               </div>
-            </div>
 
-            {/* Input Password */}
-            <div className="space-y-2 relative">
-              <div className="flex justify-between items-center ml-1">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-500">Password</label>
-                <button type="button" className="text-xs font-bold text-cyan-700 hover:text-cyan-900 transition-colors">
-                  Lupa Sandi?
-                </button>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <LockKey size={20} className="text-slate-400" weight="bold" />
+              {/* Password Input */}
+              <div className="space-y-2 relative">
+                <div className="flex justify-between items-center ml-1">
+                  <label className="text-xs font-bold text-blue-200/80 uppercase tracking-wider">Kata Sandi</label>
+                  <Link href="#" className="text-xs font-bold text-cyan-400 hover:text-cyan-300 transition-colors">
+                    Lupa Sandi?
+                  </Link>
                 </div>
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  placeholder="Masukkan kata sandi"
-                  className="w-full pl-12 pr-12 py-4 bg-white/40 border border-white/30 rounded-2xl font-bold text-slate-800 outline-none focus:bg-white focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10 transition-all placeholder:text-slate-400 shadow-sm"
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-cyan-600 transition-colors"
-                >
-                  {showPassword ? <Eye size={20} weight="bold" /> : <EyeClosed size={20} weight="bold" />}
-                </button>
+                <div className="relative">
+                  <input 
+                    type={showPassword ? "text" : "password"} 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-4 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder:text-white/20 outline-none focus:border-cyan-400 focus:bg-white/10 focus:ring-4 focus:ring-cyan-500/10 transition-all text-sm shadow-inner"
+                    required
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-white/40 hover:text-cyan-400 transition-colors"
+                  >
+                    {showPassword ? <Eye size={20} /> : <EyeClosed size={20} />}
+                  </button>
+                </div>
               </div>
+
+              {/* Remember Me Checkbox */}
+              <div className="flex items-center pt-2">
+                <label className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${remember ? 'bg-cyan-500 border-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.4)]' : 'border-white/20 bg-white/5 group-hover:border-cyan-400/50'}`}>
+                    {remember && <Check size={14} weight="bold" className="text-cyan-950" />}
+                  </div>
+                  <input type="checkbox" className="hidden" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+                  <span className="text-sm font-medium text-blue-200/70 group-hover:text-white transition-colors select-none">Ingat saya di perangkat ini</span>
+                </label>
+              </div>
+
+              {/* Login Button */}
+              <button 
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-4 mt-2 bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-400 hover:to-cyan-300 text-cyan-950 font-black text-sm rounded-2xl transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] active:scale-95 flex justify-center items-center"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-cyan-950 border-t-transparent rounded-full animate-spin"></div>
+                ) : "Masuk ke Dashboard"}
+              </button>
+
+            </form>
+
+            {/* Separator */}
+            <div className="mt-8 flex items-center gap-4 before:h-px before:flex-1 before:bg-white/10 after:h-px after:flex-1 after:bg-white/10">
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Atau</span>
             </div>
 
-            {/* Checkbox Ingat Email */}
-            <div className="flex items-center gap-3 pt-2 select-none">
-              <input 
-                type="checkbox" 
-                id="remember" 
-                checked={rememberEmail}
-                onChange={(e) => setRememberEmail(e.target.checked)}
-                className="w-4 h-4 rounded border-slate-300 text-cyan-600 focus:ring-cyan-500 cursor-pointer accent-cyan-600 shadow-sm"
-              />
-              <label htmlFor="remember" className="text-sm font-bold text-slate-600 cursor-pointer">
-                Ingat email ini
-              </label>
+            {/* Register Link */}
+            <div className="mt-6 text-center">
+              <p className="text-sm text-blue-200/60 mb-3">Belum memiliki akun lembaga?</p>
+              <button className="w-full py-3.5 bg-transparent border border-white/10 hover:bg-white/5 text-white font-bold text-sm rounded-2xl transition-all active:scale-95 shadow-sm">
+                Daftar Akun Baru
+              </button>
             </div>
 
-            {/* Tombol Login */}
-            <button 
-              type="submit"
-              className="w-full mt-4 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-cyan-500 to-teal-500 hover:from-cyan-600 hover:to-teal-600 text-white font-black text-lg rounded-2xl shadow-xl shadow-cyan-500/30 transition-all active:scale-95 group"
-            >
-              Masuk Akun <SignIn size={24} weight="bold" className="group-hover:translate-x-1 transition-transform" />
-            </button>
-            
-          </form>
-
-          {/* Separator "Atau" */}
-          <div className="mt-8 flex items-center gap-4 before:h-px before:flex-1 before:bg-slate-200 after:h-px after:flex-1 after:bg-slate-200 relative">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 relative z-10 px-2 bg-transparent backdrop-blur-md">Atau</span>
           </div>
-
-          {/* Tautan Registrasi */}
-          <div className="mt-6 text-center pt-2">
-            <Link href="/guru/arsip" className="text-sm font-bold text-cyan-700 hover:text-cyan-900 transition-colors flex items-center justify-center gap-1.5 group">
-                <Desktop size={18} weight="fill" className="text-cyan-500" /> Daftar sebagai Guru FastTest <SignIn size={16} className="group-hover:translate-x-1 transition-transform"/>
-            </Link>
-          </div>
-
         </div>
       </div>
-
     </div>
   );
 }

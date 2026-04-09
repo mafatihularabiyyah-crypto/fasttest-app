@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   ArrowLeft, DownloadSimple, FilePdf, SlidersHorizontal, 
   TextAUnderline, Hash, CheckCircle, Scan, Trash, Plus, 
@@ -12,9 +13,10 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 export default function LJKGeneratorFinal() {
+  const router = useRouter();
+
   // --- DATA BASE64 LOGO TARBIYAH TECH ---
-  // Digunakan sebagai fallback watermark agar selalu tampil
-  const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJTSURBVHgB7d0xbhNREIDh90IsiYIuDR0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDR0XoKInpKQEDX0XoKKf/R9fA/E705cAAAAASUVORK5CYII=";
+  const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJTSURBVHgB7d0xbhNREIDh90IsiYIuDR0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDR0XoKInpKQEDX0XoKKf/R9fA/E705cAAAAASUVORK5CYII=";
 
   // --- STATE ALUR HALAMAN ---
   const [viewState, setViewState] = useState<'select' | 'editor'>('select');
@@ -29,6 +31,23 @@ export default function LJKGeneratorFinal() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [teksFooter, setTeksFooter] = useState("SISTEM OMR OTOMATIS TARBIYAHTECH - 2026");
   
+  // STATE SINKRONISASI KELAS
+  const [kelasTujuan, setKelasTujuan] = useState("");
+  const [daftarKelas, setDaftarKelas] = useState<string[]>([]);
+
+  // Mengambil daftar kelas dari database saat halaman dimuat
+  useEffect(() => {
+    fetch('/api/classes')
+      .then(res => res.json())
+      .then(data => {
+        if(Array.isArray(data) && data.length > 0) {
+          setDaftarKelas(data);
+          setKelasTujuan(data[0]); // Pilih kelas pertama otomatis
+        }
+      })
+      .catch(err => console.error("Gagal load kelas:", err));
+  }, []);
+  
   const [identitasList, setIdentitasList] = useState([
     { id: 1, label: "NAMA LENGKAP" },
     { id: 2, label: "KELAS / JURUSAN" },
@@ -38,7 +57,7 @@ export default function LJKGeneratorFinal() {
   
   // --- 2. STATE STRUKTUR SOAL ---
   const [jumlahSoal, setJumlahSoal] = useState(40);
-  const [jumlahPilihan, setJumlahPilihan] = useState(4); // Default A-D
+  const [jumlahPilihan, setJumlahPilihan] = useState(4); 
   const [tipePilihan, setTipePilihan] = useState<"huruf" | "angka" | "bs">("huruf");
   const [kolom, setKolom] = useState(3);
   const [poinRata, setPoinRata] = useState(2.5);
@@ -80,12 +99,60 @@ export default function LJKGeneratorFinal() {
   };
   const hapusLogo = () => setLogoUrl(null);
 
-  const handleSimpanUjian = () => {
+  // =======================================================================
+  // FUNGSI SIMPAN KE DATABASE (INTEGRASI API)
+  // =======================================================================
+  const handleSimpanUjian = async () => {
+    if (!namaUjian || !kelasTujuan) {
+      return alert("Nama Ujian dan Kelas Tujuan wajib diisi!");
+    }
+
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      // Buat struktur soal bayangan berdasarkan settingan LJK untuk disimpan di Database.
+      const questionsData = Array.from({ length: jumlahSoal }).map((_, idx) => ({
+        type: tipePilihan === 'bs' ? 'bs' : tipePilihan === 'angka' ? 'angka14' : 'pg',
+        text: `Soal LJK No. ${idx + 1}`,
+        options: Array.from({ length: jumlahPilihan }).map((__, optIdx) => ({
+          text: getOptionLabel(optIdx),
+          isCorrect: optIdx === 0, // Kunci default otomatis
+          points: poinRata
+        }))
+      }));
+
+      // Generate Token Ujian secara acak
+      const generatedToken = useKodeUjian 
+        ? Math.floor(Math.random() * Math.pow(10, jumlahDigitKodeUjian)).toString().padStart(jumlahDigitKodeUjian, '0')
+        : `LJK-${Date.now().toString().slice(-4)}`;
+
+      // Tembak ke API Endpoint
+      const response = await fetch('/api/exams/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: namaUjian,
+          className: kelasTujuan,
+          teacherName: "Ustadz Budi Santoso", 
+          duration: 90,
+          token: generatedToken,
+          examType: "LJK", 
+          questions: questionsData
+        })
+      });
+
+      if (response.ok) {
+        alert(`Berhasil! Format LJK "${namaUjian}" telah disinkronkan ke Database Arsip.\n\nKode/Token Ujian: ${generatedToken}`);
+        router.push('/guru/arsip');
+      } else {
+        const errorData = await response.json();
+        alert(`Gagal menyimpan: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error("Database Error:", error);
+      alert("Gagal terhubung ke server database.");
+    } finally {
       setIsSaving(false);
-      alert(`Berhasil! Format LJK dengan Kode Ujian ini telah disimpan ke Database. Mesin Scan akan otomatis mengenali kertas ini nanti.`);
-    }, 1500);
+    }
   };
 
   const handleExport = async (format: 'png' | 'pdf') => {
@@ -111,9 +178,9 @@ export default function LJKGeneratorFinal() {
   };
 
   const getOptionLabel = (index: number) => {
-    if (tipePilihan === "huruf") return String.fromCharCode(65 + index); // 65 = 'A'
+    if (tipePilihan === "huruf") return String.fromCharCode(65 + index); 
     if (tipePilihan === "bs") return index === 0 ? "B" : "S";
-    return (index + 1).toString(); // Untuk angka (1, 2, 3...)
+    return (index + 1).toString(); 
   };
 
   const handlePilihTipe = (tipe: "huruf" | "angka" | "bs", jumlahOpsi: number) => {
@@ -131,10 +198,7 @@ export default function LJKGeneratorFinal() {
   if (viewState === 'select') {
     return (
       <div className="min-h-screen bg-[#f8fafc] font-sans flex flex-col items-center relative overflow-hidden pt-24 px-6">
-        
-        {/* Background Biru Top */}
         <div className="absolute top-0 left-0 w-full h-[45vh] bg-[#1d4ed8] rounded-b-[2.5rem] pointer-events-none"></div>
-        
         <Link href="/guru" className="absolute top-8 left-8 p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-all cursor-pointer">
           <ArrowLeft size={24} weight="bold" />
         </Link>
@@ -145,8 +209,7 @@ export default function LJKGeneratorFinal() {
         </div>
 
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl w-full">
-          
-          {/* Card 1: Pilihan Ganda (A-D) */}
+          {/* Card 1: Pilihan Ganda */}
           <div onClick={() => handleSelectTemplate('PG_AD')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-transparent hover:border-blue-400 transition-all group cursor-pointer">
             <div className="w-20 h-20 bg-blue-100 text-blue-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
               <FileText size={40} weight="fill" />
@@ -156,7 +219,7 @@ export default function LJKGeneratorFinal() {
             <button className="w-full py-3.5 bg-slate-50 text-slate-600 font-black rounded-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors uppercase tracking-widest text-[10px]">PILIH INI</button>
           </div>
 
-          {/* Card 2: Benar/Salah (B/S) */}
+          {/* Card 2: Benar/Salah */}
           <div onClick={() => handleSelectTemplate('BS')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-transparent hover:border-emerald-400 transition-all group relative overflow-hidden cursor-pointer">
             <div className="absolute top-0 right-8 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-b-xl shadow-sm z-10">PALING LARIS</div>
             <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
@@ -186,7 +249,6 @@ export default function LJKGeneratorFinal() {
             <p className="text-xs font-medium text-slate-400 mb-8 leading-relaxed">Atur sendiri jumlah soal, opsi, kolom, dan esai.</p>
             <button className="w-full py-3.5 bg-[#334155] text-white font-black rounded-xl group-hover:bg-[#475569] transition-colors uppercase tracking-widest text-[10px]">BUAT DARI NOL</button>
           </div>
-
         </div>
       </div>
     );
@@ -212,7 +274,7 @@ export default function LJKGeneratorFinal() {
 
         <div className="p-5 space-y-6">
           <div className="space-y-3 p-4 bg-[#f8fafc] rounded-2xl border border-[#e2e8f0]">
-            <label className="text-[10px] font-black text-[#94a3b8] uppercase tracking-widest flex items-center gap-2"><TextAUnderline size={14} /> KOP Surat & Footer</label>
+            <label className="text-[10px] font-black text-[#94a3b8] uppercase tracking-widest flex items-center gap-2"><TextAUnderline size={14} /> KOP Surat & Meta Ujian</label>
             <div>
               {logoUrl ? (
                 <div className="flex items-center gap-3 bg-white p-2 border border-[#cbd5e1] rounded-xl">
@@ -223,9 +285,31 @@ export default function LJKGeneratorFinal() {
                 <label className="flex items-center justify-center gap-2 w-full p-3 border-2 border-dashed border-[#cbd5e1] rounded-xl cursor-pointer hover:bg-slate-50 text-blue-600 font-bold text-xs"><ImageSquare size={18} /> Upload Logo KOP<input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} /></label>
               )}
             </div>
-            <textarea value={kopSurat} onChange={(e) => setKopSurat(e.target.value)} className="w-full p-3 text-xs font-bold border border-[#cbd5e1] rounded-xl outline-none resize-none h-20 uppercase" />
-            <input type="text" value={namaUjian} onChange={(e) => setNamaUjian(e.target.value)} className="w-full p-3 text-xs font-bold border border-[#cbd5e1] rounded-xl outline-none uppercase" />
-            <input type="text" value={teksFooter} onChange={(e) => setTeksFooter(e.target.value)} className="w-full p-3 text-xs font-bold border border-[#cbd5e1] rounded-xl outline-none uppercase" />
+            <textarea value={kopSurat} onChange={(e) => setKopSurat(e.target.value)} className="w-full p-3 text-xs font-bold border border-[#cbd5e1] rounded-xl outline-none resize-none h-20 uppercase" placeholder="Teks Kop Surat" />
+            
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500">Nama Ujian / Mapel</label>
+              <input type="text" value={namaUjian} onChange={(e) => setNamaUjian(e.target.value)} className="w-full p-3 text-xs font-bold border border-[#cbd5e1] rounded-xl outline-none uppercase" />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500">Kelas Tujuan (Database)</label>
+              <select 
+                value={kelasTujuan} 
+                onChange={(e) => setKelasTujuan(e.target.value)} 
+                className="w-full p-3 text-xs font-bold border border-blue-300 bg-blue-50 text-blue-800 rounded-xl outline-none uppercase cursor-pointer"
+              >
+                {daftarKelas.length === 0 && <option value="">Memuat daftar kelas...</option>}
+                {daftarKelas.map(kelas => (
+                  <option key={kelas} value={kelas}>{kelas}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500">Teks Footer</label>
+              <input type="text" value={teksFooter} onChange={(e) => setTeksFooter(e.target.value)} className="w-full p-3 text-xs font-bold border border-[#cbd5e1] rounded-xl outline-none uppercase" />
+            </div>
           </div>
 
           <div className="space-y-3 p-4 bg-[#f8fafc] rounded-2xl border border-[#e2e8f0]">
@@ -247,7 +331,6 @@ export default function LJKGeneratorFinal() {
           <div className="space-y-4">
             <label className="text-[10px] font-black text-[#94a3b8] uppercase tracking-widest flex items-center gap-2"><SlidersHorizontal size={14} /> Struktur & Penilaian</label>
             
-            {/* FITUR PILIHAN TIPE BUBBLE OMR */}
             <div className="flex flex-wrap gap-2">
               <button onClick={() => handlePilihTipe("huruf", 4)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'huruf' && jumlahPilihan === 4 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>A-D</button>
               <button onClick={() => handlePilihTipe("huruf", 5)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'huruf' && jumlahPilihan === 5 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>A-E</button>
@@ -271,7 +354,6 @@ export default function LJKGeneratorFinal() {
             <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useAnchor} onChange={(e) => setUseAnchor(e.target.checked)} className="w-4 h-4 cursor-pointer" /><span className="text-xs font-bold cursor-pointer">Corner Anchor & Timing Marks</span></label>
             <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useKodeUjian} onChange={(e) => setUseKodeUjian(e.target.checked)} className="w-4 h-4 cursor-pointer" /><span className="text-xs font-bold cursor-pointer">Arsiran KODE UJIAN</span></label>
             
-            {/* AREA ESAI TOGGLE */}
             <div className="pt-2 border-t border-[#e2e8f0]">
               <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={useEsai} onChange={(e) => setUseEsai(e.target.checked)} className="w-4 h-4 accent-emerald-600 cursor-pointer" /><span className="text-xs font-bold text-emerald-700 cursor-pointer">Gunakan Kotak Jawaban Esai</span></label>
             </div>
@@ -306,7 +388,7 @@ export default function LJKGeneratorFinal() {
 
         <div className="mt-auto p-4 border-t border-[#f1f5f9] bg-white sticky bottom-0 z-20 space-y-2 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
           <button onClick={handleSimpanUjian} disabled={isSaving} className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-all shadow-lg uppercase tracking-widest text-xs disabled:opacity-70 cursor-pointer">
-            {isSaving ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : <><FloppyDisk size={20} weight="fill" /> Simpan Data Ujian</>}
+            {isSaving ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : <><FloppyDisk size={20} weight="fill" /> Simpan Ke Arsip</>}
           </button>
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => handleExport('png')} disabled={isExporting} className="flex items-center justify-center gap-2 py-2.5 bg-[#1e293b] text-white rounded-xl font-bold transition-all hover:bg-black cursor-pointer"><DownloadSimple size={16} /> <span className="text-[10px]">EXPORT PNG</span></button>
@@ -321,19 +403,13 @@ export default function LJKGeneratorFinal() {
 
         <div ref={ljkRef} className="shadow-2xl relative box-border bg-white flex flex-col" style={{ width: "210mm", height: "297mm", paddingTop: "15mm", paddingBottom: "15mm", paddingLeft: "25mm", paddingRight: "25mm", color: "#000000" }}>
           
-          {/* WATERMARK TARBIYAH TECH (DENGAN LOGO BASE64 SUPAYA AMAN) */}
           <div className="absolute right-[6mm] top-0 bottom-0 flex items-center justify-center z-10 w-6">
             <div className="flex items-center gap-3" style={{ transform: 'rotate(-90deg)', whiteSpace: 'nowrap', opacity: 0.25 }}>
-              <img 
-                src={LOGO_BASE64} // Menggunakan Base64 agar 100% muncul
-                alt="Logo" 
-                className="h-4 object-contain grayscale"
-              />
+              <img src={LOGO_BASE64} alt="Logo" className="h-4 object-contain grayscale" />
               <p className="text-[12px] font-black tracking-[0.5em] uppercase m-0 text-slate-800">PROVIDED BY TARBIYAH TECH</p>
             </div>
           </div>
 
-          {/* TIMING MARKS: HANYA 4 KOTAK DI SUDUT KERTAS */}
           {useAnchor && (
             <>
               <div className="absolute top-[10mm] left-[10mm] w-6 h-6 bg-black"></div>
@@ -343,9 +419,7 @@ export default function LJKGeneratorFinal() {
             </>
           )}
 
-          {/* CONTAINER UTAMA (Mencegah Overlap dengan 4 Kotak Sudut) */}
           <div className="relative z-10 flex flex-col h-full pl-[5mm] pr-[5mm] pt-[2mm]">
-            
             <div className="flex items-center gap-4 pb-3 mb-6 border-b-4 border-black shrink-0">
               <div className="w-[80px] h-[80px] flex items-center justify-center overflow-hidden">{logoUrl && <img src={logoUrl} alt="Logo" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />}</div>
               <div className="flex-1 text-center">
@@ -413,7 +487,6 @@ export default function LJKGeneratorFinal() {
               )}
             </div>
 
-            {/* AREA JAWABAN PILIHAN GANDA */}
             <div className="flex justify-between shrink-0" style={{ gap: '20px' }}>
               {Array.from({ length: kolom }).map((_, colIndex) => (
                 <div key={colIndex} className="flex-1 flex flex-col gap-y-2">
@@ -441,20 +514,17 @@ export default function LJKGeneratorFinal() {
               ))}
             </div>
 
-            {/* AREA KOTAK JAWABAN ESAI (DENGAN GARIS GRID BUKU) */}
             {useEsai && (
               <div className="mt-8 w-full border-2 border-black p-4 flex flex-col shrink-0 bg-white relative" style={{ height: `${tinggiEsaiCM}cm` }}>
                 <div className="absolute top-0 left-0 bg-black text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
                   <NotePencil size={12} weight="bold" /> AREA JAWABAN ESAI
                 </div>
-                {/* Efek Garis Buku Tulis / Grid Horizontal */}
                 <div className="flex-1 mt-4 border border-[#dddddd] border-dashed" style={{ backgroundImage: 'linear-gradient(transparent 95%, #e2e8f0 95%)', backgroundSize: '100% 8mm' }}></div>
               </div>
             )}
 
           </div>
 
-          {/* FOOTER */}
           <div className="mt-auto absolute bottom-[12mm] left-[25mm] right-[25mm] text-center pt-2 z-10 border-t border-[#cccccc]">
             <p className="text-[8px] font-black tracking-[0.4em] text-[#666666]">{teksFooter}</p>
           </div>
