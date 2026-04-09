@@ -44,11 +44,13 @@ const generateStudents = () => {
   }).sort((a, b) => b.nilai - a.nilai); 
 };
 
+// INITIAL FOLDERS TERMASUK TAHUN 2027 UNTUK TESTING
 const INITIAL_FOLDERS = [
   { id: "U01", nama: "Ujian Akhir B. Arab", kelas: "XII IPA", tanggal: "10 April 2026", pengajar: "Ustadz Budi Santoso", totalScan: 30, tipe: "UAS", linkSoal: "" },
   { id: "U02", nama: "Tryout Fiqih", kelas: "XI IPS", tanggal: "12 April 2026", pengajar: "Ustadzah Siti Aminah", totalScan: 30, tipe: "Tryout", linkSoal: "https://drive.google.com/file/dummy" },
   { id: "U03", nama: "Ulangan Harian Nahwu", kelas: "X Agama", tanggal: "15 April 2026", pengajar: "Ustadz Ali Ridho", totalScan: 30, tipe: "UH", linkSoal: "" },
   { id: "U04", nama: "Tugas Qiro'ah", kelas: "X MIPA", tanggal: "20 April 2026", pengajar: "Ustadz Budi Santoso", totalScan: 30, tipe: "Tugas", linkSoal: "" },
+  { id: "U05", nama: "Simulasi Ujian 2027", kelas: "XII IPS", tanggal: "10 Mei 2027", pengajar: "Ustadz Budi Santoso", totalScan: 30, tipe: "Tryout", linkSoal: "" },
 ];
 
 export default function ArsipUjianPage() {
@@ -72,8 +74,25 @@ export default function ArsipUjianPage() {
   const [modalLinkSoal, setModalLinkSoal] = useState<{isOpen: boolean, folderId: string, url: string}>({isOpen: false, folderId: "", url: ""});
   const [modalEsai, setModalEsai] = useState<{isOpen: boolean, student: any, scoreInput: string}>({isOpen: false, student: null, scoreInput: ""});
   
-  // MODAL ARSIP 1 TAHUN
+  // MODAL ARSIP 1 TAHUN & PEMILIHAN TAHUN
   const [showArchiveAllModal, setShowArchiveAllModal] = useState(false);
+  const [selectedArchiveYear, setSelectedArchiveYear] = useState<string>("");
+
+  // Deteksi tahun berapa saja yang tersedia di folder untuk dropdown
+  const availableYears = useMemo(() => {
+    const years = folders.map(f => {
+      const parts = f.tanggal.split(" ");
+      return parts[parts.length - 1]; // Ambil tahun di akhir string tanggal
+    });
+    return Array.from(new Set(years)).sort((a, b) => b.localeCompare(a));
+  }, [folders]);
+
+  const handleOpenArchiveModal = () => {
+    if (availableYears.length > 0) {
+      setSelectedArchiveYear(availableYears[0]);
+    }
+    setShowArchiveAllModal(true);
+  };
 
   // --- LOGIKA ANALISIS LENGKAP ---
   const analysisData = useMemo(() => {
@@ -156,15 +175,20 @@ export default function ArsipUjianPage() {
     setIsExportingPDF(false);
   };
 
-  // --- EXPORT EXCEL (TERMASUK BACKUP AKHIR TAHUN) ---
-  const exportMultiSheetExcel = (isBackupAkhirTahun = false) => {
+  // --- EXPORT EXCEL MASTER ---
+  const exportMultiSheetExcel = (isBackupAkhirTahun = false, targetYear = "") => {
     let xml = `<?xml version="1.0"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n<Styles><Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1e40af" ss:Pattern="Solid"/></Style></Styles>`;
     
-    // Jika tidak ada folder, buat sheet kosong agar Excel tidak error
-    if (folders.length === 0) {
-      xml += `<Worksheet ss:Name="Data Kosong"><Table><Row><Cell><Data ss:Type="String">Tidak ada data untuk diekspor.</Data></Cell></Row></Table></Worksheet>`;
+    let targetFolders = folders;
+    // Jika dari modal Arsip Tahunan, filter folder berdasarkan tahun
+    if (isBackupAkhirTahun && targetYear !== "") {
+      targetFolders = folders.filter(f => f.tanggal.includes(targetYear));
+    }
+
+    if (targetFolders.length === 0) {
+      xml += `<Worksheet ss:Name="Data Kosong"><Table><Row><Cell><Data ss:Type="String">Tidak ada data untuk diekspor pada tahun terpilih.</Data></Cell></Row></Table></Worksheet>`;
     } else {
-      folders.forEach(folder => {
+      targetFolders.forEach(folder => {
         xml += `<Worksheet ss:Name="${folder.nama.substring(0, 31).replace(/[\[\]\*?\:\/\\]/g, "")}"><Table><Row><Cell ss:StyleID="Header"><Data ss:Type="String">Nama Siswa</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">NIS</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Benar</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Salah</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Nilai Murni</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Nilai Remedial</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Nilai Esai</Data></Cell>${Array.from({length: 40}).map((_, i) => `<Cell ss:StyleID="Header"><Data ss:Type="String">Soal ${i+1}</Data></Cell>`).join("")}</Row>`;
         studentsData.forEach(student => {
           const binaryAnswers = student.answersText.map((ans, idx) => ans === KUNCI_JAWABAN[idx] ? 1 : 0);
@@ -178,7 +202,7 @@ export default function ArsipUjianPage() {
     const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
     const url = URL.createObjectURL(blob); const link = document.createElement("a");
     link.href = url; 
-    link.download = isBackupAkhirTahun ? `Master_Backup_TarbiyahTech_2025-2026.xls` : `Rekapan_Semua_Ujian_TarbiyahTech.xls`; 
+    link.download = isBackupAkhirTahun ? `Master_Backup_TarbiyahTech_${targetYear}.xls` : `Rekapan_Semua_Ujian_TarbiyahTech.xls`; 
     link.click(); URL.revokeObjectURL(url);
   };
 
@@ -192,17 +216,18 @@ export default function ArsipUjianPage() {
     link.setAttribute("href", encodedUri); link.setAttribute("download", `Data_${folderName.replace(/\s+/g, '_')}.csv`); document.body.appendChild(link); link.click(); link.remove();
   };
 
-  // --- ARSIPKAN 1 TAHUN (DOWNLOAD MASTER EXCEL & CLEAR DATA) ---
+  // --- ARSIPKAN DATA SESUAI TAHUN ---
   const handleArchiveAndClearAll = () => {
-    // 1. Download Master Database dalam format Excel Multi-Sheet
-    exportMultiSheetExcel(true);
+    if(!selectedArchiveYear) return;
 
-    // 2. Kosongkan seluruh data dari dashboard (Simulasi reset sistem)
+    // 1. Download Master Database untuk tahun yang dipilih
+    exportMultiSheetExcel(true, selectedArchiveYear);
+
+    // 2. Filter data: HANYA HAPUS yang tahunnya sama dengan yang diarsipkan. Sisanya (tahun lain) dipertahankan.
     setTimeout(() => {
-      setFolders([]);
-      setStudentsData([]);
+      setFolders(prev => prev.filter(f => !f.tanggal.includes(selectedArchiveYear)));
       setShowArchiveAllModal(false);
-      alert("Backup berhasil diunduh dan Sistem Arsip telah dibersihkan untuk tahun ajaran baru.");
+      alert(`Backup berhasil diunduh! Folder ujian untuk tahun ${selectedArchiveYear} telah dibersihkan dari dashboard.`);
     }, 1000);
   };
 
@@ -228,8 +253,8 @@ export default function ArsipUjianPage() {
             </div>
             
             <div className="flex gap-3">
-              <button onClick={() => setShowArchiveAllModal(true)} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-slate-500/30 cursor-pointer active:scale-95">
-                <Archive size={20} weight="fill" /> Arsipkan Data 1 Tahun
+              <button onClick={handleOpenArchiveModal} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-slate-500/30 cursor-pointer active:scale-95">
+                <Archive size={20} weight="fill" /> Arsipkan Tahunan
               </button>
               <button onClick={() => exportMultiSheetExcel()} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/30 cursor-pointer active:scale-95">
                 <FileXls size={20} weight="fill" /> Export Excel Lengkap
@@ -278,7 +303,6 @@ export default function ArsipUjianPage() {
                     <span className="bg-slate-100 px-2 py-1 rounded border border-slate-200">{folder.kelas}</span> • <span>{folder.tanggal}</span>
                   </div>
                   
-                  {/* Info Pengajar */}
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 mb-6">
                     <UserCircle size={16} weight="fill" className="text-slate-300"/> {folder.pengajar}
                   </div>
@@ -311,22 +335,39 @@ export default function ArsipUjianPage() {
             </div>
           )}
 
-          {/* MODAL ARSIP 1 TAHUN */}
+          {/* MODAL ARSIP TAHUNAN PILIHAN */}
           {showArchiveAllModal && (
             <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden text-center">
-                <div className="bg-slate-800 p-6 flex flex-col items-center justify-center text-white">
+              <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+                <div className="bg-slate-800 p-6 flex flex-col items-center justify-center text-white text-center">
                   <Archive size={56} weight="fill" className="mb-2 text-blue-400" />
                   <h3 className="font-black text-xl">Arsipkan & Bersihkan Sistem</h3>
                 </div>
                 <div className="p-6">
-                  <p className="text-sm font-semibold text-slate-600 mb-4 leading-relaxed">
-                    Sistem akan mengunduh <strong>Master Database Excel (.xls)</strong> yang berisi seluruh riwayat penilaian, daftar siswa, dan analisis di semua folder sebagai Backup.
-                    <br/><br/><strong className="text-red-600">PENTING:</strong> Setelah terunduh, seluruh folder dan data hasil scan di layar utama akan <strong>dihapus bersih</strong> secara otomatis.
+                  <p className="text-sm font-semibold text-slate-600 mb-4 leading-relaxed text-center">
+                    Sistem akan mengunduh Backup Excel dan <strong className="text-red-600">menghapus folder ujian HANYA untuk tahun ajaran yang dipilih</strong>. Data tahun lain akan tetap dipertahankan di dashboard.
                   </p>
-                  <div className="flex gap-3 mt-6">
+                  
+                  {availableYears.length > 0 ? (
+                    <div className="mb-6">
+                      <label className="text-xs font-bold text-slate-500 block mb-2 text-left uppercase tracking-widest">Pilih Tahun Ajaran:</label>
+                      <select 
+                        value={selectedArchiveYear} 
+                        onChange={(e) => setSelectedArchiveYear(e.target.value)}
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                      >
+                        {availableYears.map(year => (
+                          <option key={year} value={year}>Tahun {year}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="mb-6 p-3 bg-red-50 text-red-600 text-sm font-bold rounded-xl text-center">Tidak ada data tahun yang bisa diarsipkan.</div>
+                  )}
+
+                  <div className="flex gap-3 mt-4">
                     <button onClick={() => setShowArchiveAllModal(false)} className="flex-1 py-3 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer transition-colors">Batal</button>
-                    <button onClick={handleArchiveAndClearAll} className="flex-[1.5] py-3 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl cursor-pointer shadow-lg shadow-red-500/30 transition-all active:scale-95">Ya, Download & Hapus</button>
+                    <button onClick={handleArchiveAndClearAll} disabled={availableYears.length === 0} className="flex-[1.5] py-3 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl cursor-pointer shadow-lg shadow-red-500/30 transition-all active:scale-95 disabled:opacity-50">Download & Hapus</button>
                   </div>
                 </div>
               </div>
@@ -592,7 +633,7 @@ export default function ArsipUjianPage() {
         </div>
       )}
 
-      {/* === MODAL POPUP: ANALISIS UJIAN LENGKAP === */}
+      {/* === MODAL POPUP: ANALISIS UJIAN LENGKAP (PDF HEX) === */}
       {showAnalisis && analysisData && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 py-8">
           <div className="bg-white w-full max-w-6xl rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col max-h-full overflow-hidden">
@@ -613,7 +654,7 @@ export default function ArsipUjianPage() {
                 <div className="mb-6 flex justify-between items-end border-b border-[#e2e8f0] pb-4">
                   <div>
                     <h2 className="text-2xl font-black text-[#1e293b]">{selectedFolder.nama}</h2>
-                    <p className="text-sm font-bold text-[#64748b] mt-1">Pengajar: {selectedFolder.pengajar} | Kelas: {selectedFolder.kelas} | Tanggal: {selectedFolder.tanggal}</p>
+                    <p className="text-sm font-bold text-[#64748b] mt-1">Kelas: {selectedFolder.kelas} | Tanggal: {selectedFolder.tanggal}</p>
                   </div>
                 </div>
 
@@ -741,11 +782,13 @@ export default function ArsipUjianPage() {
         </div>
       )}
 
+      {/* Style CSS untuk Scrollbar Custom */}
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
       `}} />
+
     </div>
   );
 }
