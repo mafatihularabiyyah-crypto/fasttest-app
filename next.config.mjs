@@ -1,11 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  images: {
-    unoptimized: true,
-  },
+  // Jika Anda ingin menggunakan Cloudflare Pages, aktifkan ini:
+  // output: 'export', 
 };
 
 export default nextConfig;
