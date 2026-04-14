@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeClosed, Check } from "@phosphor-icons/react";
+import { createBrowserClient } from "@supabase/ssr";
 
 export default function ElegantBlueLoginPage() {
   const router = useRouter();
@@ -13,15 +14,35 @@ export default function ElegantBlueLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // State baru untuk menampung pesan error dari Supabase
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  // Inisialisasi Supabase Client
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMsg(""); // Bersihkan error sebelumnya
     
-    // Simulasi proses Login
-    setTimeout(() => {
+    // Proses Login Asli ke Supabase
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
+    });
+
+    if (error) {
+      // Jika gagal (email/password salah)
+      setErrorMsg(error.message);
+      setIsLoading(false);
+    } else {
+      // Jika berhasil login, langsung pindah ke dashboard
       router.push("/guru");
-    }, 1500);
+    }
   };
 
   return (
@@ -42,18 +63,14 @@ export default function ElegantBlueLoginPage() {
         {/* ========================================= */}
         <div className="lg:w-[55%] relative p-10 lg:p-16 flex flex-col justify-end min-h-[40vh] lg:min-h-full overflow-hidden border-r border-white/5">
           
-          {/* Ilustrasi Bentuk Abstrak Melengkung Khas Biru/Cyan */}
+          {/* Ilustrasi Bentuk Abstrak Melengkung */}
           <div className="absolute top-[-20%] left-[-20%] w-[120%] h-[120%] pointer-events-none">
-            {/* Layer 1 (Cyan Terang) */}
             <div className="absolute top-[5%] left-[5%] w-[450px] h-[450px] bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full shadow-[0_10px_40px_rgba(6,182,212,0.3)] transform -translate-x-1/4 -translate-y-1/4"></div>
-            {/* Layer 2 (Blue Medium) */}
             <div className="absolute top-[12%] left-[12%] w-[420px] h-[420px] bg-gradient-to-br from-blue-500 to-blue-700 rounded-full shadow-[0_10px_40px_rgba(59,130,246,0.3)] transform -translate-x-1/4 -translate-y-1/4"></div>
-            {/* Layer 3 (Navy Dark) */}
             <div className="absolute top-[19%] left-[19%] w-[390px] h-[390px] bg-gradient-to-br from-blue-800 to-indigo-900 rounded-full shadow-[0_10px_40px_rgba(30,58,138,0.5)] transform -translate-x-1/4 -translate-y-1/4"></div>
           </div>
 
           <div className="relative z-10 mt-auto">
-            {/* Logo Group */}
             <div className="flex items-center gap-4 mb-8">
               <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-cyan-400 font-black text-3xl border border-white/20 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
                 F
@@ -97,6 +114,13 @@ export default function ElegantBlueLoginPage() {
 
             <form onSubmit={handleLogin} className="space-y-6">
               
+              {/* Pesan Error Supabase */}
+              {errorMsg && (
+                <div className="p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-200 text-sm font-medium text-center">
+                  {errorMsg === "Invalid login credentials" ? "Email atau Password salah!" : errorMsg}
+                </div>
+              )}
+
               {/* Email Input */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-blue-200/80 ml-1 uppercase tracking-wider">Alamat Email</label>

@@ -11,30 +11,53 @@ datasource db {
 }
 
 // ==========================================
+// 0. MASTER LEMBAGA / SEKOLAH (MULTI-TENANT)
+// ==========================================
+
+model Sekolah {
+  id        String   @id @default(uuid())
+  nama      String   // cth: "Pondok Pesantren Mafatihul Islam"
+  alamat    String?
+  createdAt DateTime @default(now())
+
+  // Relasi Data
+  gurus     Guru[]
+  santris   Santri[]
+  ujians    Ujian[]
+}
+
+// ==========================================
 // 1. PENGGUNA (GURU & SANTRI)
 // ==========================================
 
 model Guru {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid()) // Nanti disamakan dengan ID Supabase Auth
+  sekolahId String   // Label Kepemilikan Sekolah
   email     String   @unique
-  password  String
+  password  String   // Jika pakai Supabase Auth, field ini bisa dikosongkan/opsional nanti
   nama      String   // cth: "Ustadz Budi Santoso"
   mapel     String?  // cth: "Pengajar Bahasa Arab"
   createdAt DateTime @default(now())
 
+  sekolah   Sekolah  @relation(fields: [sekolahId], references: [id], onDelete: Cascade)
   ujian     Ujian[]
 }
 
 model Santri {
   id        String   @id @default(uuid())
-  nis       String   @unique
+  sekolahId String   // Label Kepemilikan Sekolah
+  nis       String   
   nama      String
   gender    String   // "L" atau "P"
   kelas     String   // cth: "X IPA 1"
   status    String   @default("Aktif") // "Aktif", "Lulus", "Pindah", "Drop Out"
   createdAt DateTime @default(now())
 
+  sekolah   Sekolah  @relation(fields: [sekolahId], references: [id], onDelete: Cascade)
   hasilUjian HasilUjian[]
+
+  // KUNCI MULTI-TENANT: NIS tidak boleh sama HANYA di dalam sekolah yang sama
+  @@unique([nis, sekolahId])
 }
 
 // ==========================================
@@ -43,6 +66,7 @@ model Santri {
 
 model Ujian {
   id          String   @id @default(uuid())
+  sekolahId   String   // Memudahkan filter daftar ujian di Dashboard Admin Sekolah
   guruId      String
   namaUjian   String   // cth: "Ujian Akhir B. Arab"
   tipe        String   // cth: "UH", "UTS", "UAS", "Tryout", "Tugas"
@@ -59,6 +83,7 @@ model Ujian {
   
   createdAt   DateTime @default(now())
 
+  sekolah     Sekolah      @relation(fields: [sekolahId], references: [id], onDelete: Cascade)
   guru        Guru         @relation(fields: [guruId], references: [id], onDelete: Cascade)
   soal        Soal[]
   hasilUjian  HasilUjian[]
@@ -69,25 +94,25 @@ model Ujian {
 // ==========================================
 
 model Soal {
-  id          String   @id @default(uuid())
-  ujianId     String
-  nomor       Int
-  tipeSoal    String   // "pg", "kompleks", "bs", "angka14"
-  teksSoal    String?  // Kosong jika murni LJK Offline
+  id        String   @id @default(uuid())
+  ujianId   String
+  nomor     Int
+  tipeSoal  String   // "pg", "kompleks", "bs", "angka14"
+  teksSoal  String?  // Kosong jika murni LJK Offline
   
-  ujian       Ujian    @relation(fields: [ujianId], references: [id], onDelete: Cascade)
-  opsi        Opsi[]
+  ujian     Ujian    @relation(fields: [ujianId], references: [id], onDelete: Cascade)
+  opsi      Opsi[]
 }
 
 model Opsi {
-  id          String   @id @default(uuid())
-  soalId      String
-  label       String?  // "A", "B", "C", dll
-  teksOpsi    String?  
-  isCorrect   Boolean  @default(false)
-  points      Float    @default(0)
+  id        String   @id @default(uuid())
+  soalId    String
+  label     String?  // "A", "B", "C", dll
+  teksOpsi  String?  
+  isCorrect Boolean  @default(false)
+  points    Float    @default(0)
   
-  soal        Soal     @relation(fields: [soalId], references: [id], onDelete: Cascade)
+  soal      Soal     @relation(fields: [soalId], references: [id], onDelete: Cascade)
 }
 
 // ==========================================
