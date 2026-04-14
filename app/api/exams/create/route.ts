@@ -15,10 +15,24 @@ export async function POST(req: Request) {
     // 2. Cari Guru pengampu
     let guru = await prisma.guru.findFirst({ where: { nama: teacherName } });
     if (!guru) {
-      guru = await prisma.guru.create({
-        data: { nama: teacherName, email: `${teacherName.replace(/\s+/g, '').toLowerCase()}@sekolah.com`, password: "123" }
-      });
+  // Cari sekolah yang ada, atau buat baru jika database masih kosong
+  let sekolah = await prisma.sekolah.findFirst();
+  if (!sekolah) {
+    sekolah = await prisma.sekolah.create({
+      data: { nama: "Sekolah Default TarbiyahTech" }
+    });
+  }
+
+  // Buat guru dengan memasukkan sekolahId yang diwajibkan
+  guru = await prisma.guru.create({
+    data: { 
+      nama: teacherName, 
+      email: `${teacherName.replace(/\s+/g, '').toLowerCase()}@sekolah.com`, 
+      password: "123",
+      sekolahId: sekolah.id // <--- INI KUNCI FIX-NYA
     }
+  });
+}
 
     // ==============================================================
     // KUNCI SINKRONISASI: Tarik semua santri dari kelas yang dipilih
