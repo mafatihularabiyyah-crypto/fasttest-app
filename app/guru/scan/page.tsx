@@ -7,6 +7,8 @@ import {
   ArrowLeft, Lightning, Warning, User, Check, X, ArrowCounterClockwise, 
   FloppyDisk, Scan, HandTap, XCircle, Trash, IdentificationCard, CheckCircle, ChartBar
 } from "@phosphor-icons/react";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store"; //Versi baru
 
 type ScanState = 'searching' | 'aligning' | 'locked' | 'flashing' | 'result' | 'invalid';
 type ResultTab = 'ringkasan' | 'detail';
