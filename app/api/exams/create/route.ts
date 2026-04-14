@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     // 2. Cari Guru pengampu
     let guru = await prisma.guru.findFirst({ where: { nama: teacherName } });
     if (!guru) {
-  // Cari sekolah yang ada, atau buat baru jika database masih kosong
+  // 1. Cari atau buat sekolah default terlebih dahulu
   let sekolah = await prisma.sekolah.findFirst();
   if (!sekolah) {
     sekolah = await prisma.sekolah.create({
@@ -23,13 +23,13 @@ export async function POST(req: Request) {
     });
   }
 
-  // Buat guru dengan memasukkan sekolahId yang diwajibkan
+  // 2. Buat guru dengan memasukkan sekolahId
   guru = await prisma.guru.create({
     data: { 
       nama: teacherName, 
       email: `${teacherName.replace(/\s+/g, '').toLowerCase()}@sekolah.com`, 
       password: "123",
-      sekolahId: sekolah.id // <--- INI KUNCI FIX-NYA
+      sekolahId: sekolah.id // <--- INI ADALAH PENYELAMATNYA
     }
   });
 }
