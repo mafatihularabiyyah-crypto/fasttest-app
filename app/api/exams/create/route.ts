@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     // 3. Simpan Ujian, Soal, Opsi, DAN ARSIP KOSONG SEKALIGUS!
     const newExam = await prisma.ujian.create({
       data: {
+        sekolahId: guru.sekolahId,
         guruId: guru.id,
         namaUjian: title,
         kelas: className,
@@ -102,4 +103,4 @@ export async function POST(req: Request) {
     console.error("Gagal menyimpan:", error);
     return NextResponse.json({ message: "Terjadi kesalahan internal server." }, { status: 500 });
   }
-}
+} 
