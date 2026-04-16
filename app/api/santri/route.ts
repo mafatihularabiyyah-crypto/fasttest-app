@@ -17,8 +17,19 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
+
+    // --- MULAI PERBAIKAN: Cari atau Buat Sekolah Default ---
+    let sekolah = await prisma.sekolah.findFirst();
+    if (!sekolah) {
+      sekolah = await prisma.sekolah.create({
+        data: { nama: "Sekolah Default TarbiyahTech" }
+      });
+    }
+    // --- AKHIR PERBAIKAN ---
+
     const newSantri = await prisma.santri.create({
       data: {
+        sekolahId: sekolah.id, // <--- INI KUNCI AGAR LOLOS RAZIA PRISMA
         nis: body.nis,
         nama: body.nama,
         gender: body.gender,
