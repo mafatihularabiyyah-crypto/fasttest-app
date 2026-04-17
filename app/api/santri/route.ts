@@ -1,82 +1,42 @@
-export const runtime = 'edge';
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { createClient } from "@/utils/supabase/server";
 
-// 1. MENGAMBIL SEMUA DATA SANTRI (READ)
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
-    const santri = await prisma.santri.findMany({
-      orderBy: { kelas: 'asc' } // Urutkan berdasarkan kelas
-    });
-    return NextResponse.json(santri);
-  } catch (error) {
-    return NextResponse.json({ error: "Gagal mengambil data" }, { status: 500 });
-  }
-}
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-// 2. MENAMBAH DATA SANTRI BARU (CREATE)
-export async function POST(req: Request) {
-  try {
-    const body = await req.json();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // --- MULAI PERBAIKAN: Cari atau Buat Sekolah Default ---
-    let sekolah = await prisma.sekolah.findFirst();
-    if (!sekolah) {
-      sekolah = await prisma.sekolah.create({
-        data: { nama: "Sekolah Default TarbiyahTech" }
-      });
+    // 1. Cari tahu guru ini mengajar di sekolah mana
+    const { data: guru } = await supabase
+      .from("Guru")
+      .select("sekolah_id")
+      .eq("email", user.email)
+      .single();
+
+    if (!guru || !guru.sekolah_id) {
+      return NextResponse.json({ data: [] }, { status: 200 }); // Kembalikan array kosong jika tidak ada sekolah
     }
-    // --- AKHIR PERBAIKAN ---
 
-    const newSantri = await prisma.santri.create({
-      data: {
-        sekolahId: sekolah.id, // <--- INI KUNCI AGAR LOLOS RAZIA PRISMA
-        nis: body.nis,
-        nama: body.nama,
-        gender: body.gender,
-        kelas: body.kelas,
-        status: body.status,
-      }
-    });
-    return NextResponse.json({ message: "Berhasil ditambah", data: newSantri }, { status: 201 });
+    // 2. Ambil semua data Santri yang satu sekolah dengan guru tersebut
+    const { data: santri, error } = await supabase
+      .from("Santri")
+      .select("*")
+      .eq("sekolah_id", guru.sekolah_id)
+      .order("nama", { ascending: true }); // Urutkan sesuai abjad
+
+    if (error) {
+      console.log("Error ambil santri:", error);
+      return NextResponse.json({ data: [] }, { status: 200 });
+    }
+
+    return NextResponse.json({ data: santri }, { status: 200 });
+
   } catch (error) {
-    return NextResponse.json({ error: "Gagal menambah data" }, { status: 500 });
-  }
-}
-
-// 3. MENGUBAH DATA SANTRI (UPDATE)
-export async function PUT(req: Request) {
-  try {
-    const body = await req.json();
-    const updatedSantri = await prisma.santri.update({
-      where: { id: body.id },
-      data: {
-        nis: body.nis,
-        nama: body.nama,
-        gender: body.gender,
-        kelas: body.kelas,
-        status: body.status,
-      }
-    });
-    return NextResponse.json({ message: "Berhasil diubah", data: updatedSantri });
-  } catch (error) {
-    return NextResponse.json({ error: "Gagal mengubah data" }, { status: 500 });
-  }
-}
-
-// 4. MENGHAPUS DATA SANTRI (DELETE)
-export async function DELETE(req: Request) {
-  try {
-    const url = new URL(req.url);
-    const id = url.searchParams.get("id");
-    
-    if (!id) return NextResponse.json({ error: "ID tidak ditemukan" }, { status: 400 });
-
-    await prisma.santri.delete({
-      where: { id: id }
-    });
-    return NextResponse.json({ message: "Berhasil dihapus" });
-  } catch (error) {
-    return NextResponse.json({ error: "Gagal menghapus data" }, { status: 500 });
+    console.log("Fatal Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

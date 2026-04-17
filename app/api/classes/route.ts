@@ -1,20 +1,32 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { createClient } from "@/utils/supabase/server";
+
+// Memastikan data selalu segar (tidak di-cache)
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    // Mengambil nama-nama kelas yang unik dari tabel Santri yang statusnya Aktif
-    const classes = await prisma.santri.findMany({
-      select: { kelas: true },
-      distinct: ['kelas'],
-      where: { status: 'Aktif' },
-      orderBy: { kelas: 'asc' }
-    });
-    
-    // Mengubah format array object menjadi array string biasa: ["X IPA 1", "XI IPS 2"]
-    return NextResponse.json(classes.map((c: any) => c.kelas));
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Cek apakah user sudah login
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // TODO: Nanti jika Anda sudah membuat tabel "Kelas" di Supabase, buka komentar di bawah ini:
+    // const { data: kelas, error } = await supabase.from("Kelas").select("*");
+    // if (error) throw error;
+    // return NextResponse.json({ data: kelas }, { status: 200 });
+
+    // Respon sementara agar aplikasi tidak error
+    return NextResponse.json({ 
+      message: "API Kelas terhubung, tapi tabel belum dibuat.",
+      data: [] 
+    }, { status: 200 });
+
   } catch (error) {
-    console.error("Gagal mengambil kelas:", error);
-    return NextResponse.json({ error: "Gagal memuat kelas" }, { status: 500 });
+    console.log("Error API Classes:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

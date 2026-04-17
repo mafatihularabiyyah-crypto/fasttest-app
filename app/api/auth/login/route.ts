@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { createClient } from "@/utils/supabase/server";
 
 export async function POST(req: Request) {
   try {
@@ -7,34 +7,47 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { email, password } = body;
 
-    // 2. Cari data Guru di database berdasarkan email
-    const guru = await prisma.guru.findUnique({
-      where: { email: email }
+    const supabase = await createClient();
+
+    // 2. Serahkan urusan keamanan dan verifikasi ke Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email: email,
+      password: password,
     });
 
-    // 3. Jika email tidak ada di database
-    if (!guru) {
+    // 3. Jika email tidak terdaftar atau password salah
+    if (authError) {
+      // Supabase otomatis membedakan error (Invalid login credentials)
       return NextResponse.json(
-        { error: "Email tidak terdaftar. Silakan cek kembali." }, 
-        { status: 404 }
-      );
-    }
-
-    // 4. Jika password salah (Catatan: Ini pencocokan teks biasa. Nanti bisa diupgrade pakai bcrypt)
-    if (guru.password !== password) {
-      return NextResponse.json(
-        { error: "Password salah." }, 
+        { error: "Email tidak terdaftar atau password salah." }, 
         { status: 401 }
       );
     }
 
-    // 5. Jika lolos semua, berikan tiket masuk!
+    // 4. Ambil nama Guru dari database manual kita
+    const { data: guru } = await supabase
+      .from("Guru")
+      .select("id, nama, email")
+      .eq("email", email)
+      .single();
+
+    if (!guru) {
+       // Opsional: Anda bisa menggagalkan login jika data di tabel Guru kosong
+       // await supabase.auth.signOut();
+       // return NextResponse.json({ error: "Guru belum terdaftar oleh Admin." }, { status: 404 });
+    }
+
+    // 5. Tiket masuk diberikan + Session otomatis tersimpan di Cookies browser!
     return NextResponse.json(
-      { message: "Login sukses!", user: { id: guru.id, nama: guru.nama, email: guru.email } }, 
+      { 
+        message: "Login sukses!", 
+        user: guru || { email: authData.user?.email } 
+      }, 
       { status: 200 }
     );
 
   } catch (error) {
+    console.error("Login API Error:", error);
     return NextResponse.json(
       { error: "Terjadi kesalahan pada server." }, 
       { status: 500 }

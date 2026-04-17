@@ -20,11 +20,12 @@ export default function MainDashboard() {
 
   // STATE UNTUK PROFIL
   const [guruProfile, setGuruProfile] = useState({
-    nama: "Memuat...",
-    sekolahNama: "Memuat...",
+    nama: "Memuat Data...",
+    sekolahNama: "Memuat Sekolah...",
     jumlahSantri: 0
   });
 
+  // WAKTU & SAPAAN
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
@@ -47,7 +48,9 @@ export default function MainDashboard() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
+        // Jalur ini WAJIB sama dengan struktur folder API Anda
         const res = await fetch("/api/guru/profile");
+        
         if (res.ok) {
           const data = await res.json();
           setGuruProfile({
@@ -55,8 +58,17 @@ export default function MainDashboard() {
             sekolahNama: data.sekolahNama,
             jumlahSantri: data.jumlahSantri
           });
-        } else {
-          router.push("/login"); // Lempar jika belum login
+        } else if (res.status === 401) {
+          // Jika belum login, paksa ke halaman login
+          router.push("/login"); 
+        } else if (res.status === 404) {
+          // Jika login tapi data di tabel tidak ada (Biar tidak auto-logout terus menerus)
+          setGuruProfile({
+            nama: "Guru Belum Terdaftar",
+            sekolahNama: "Hubungi Admin",
+            jumlahSantri: 0
+          });
+          console.error("Data email ini belum dimasukkan ke tabel 'Guru' di Supabase.");
         }
       } catch (error) {
         console.error("Gagal mengambil profil:", error);
@@ -74,6 +86,7 @@ export default function MainDashboard() {
     router.push("/login");
   };
 
+  // Tampilan saat proses loading awal
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] text-blue-600 font-bold">Memuat Dashboard...</div>;
   }
