@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+// @ts-ignore
 import "./globals.css";
 
 // Menggunakan font standar Inter yang stabil di Next.js 14
