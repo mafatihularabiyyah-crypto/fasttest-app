@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeClosed, Check } from "@phosphor-icons/react";
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient } from "@/utils/supabase/client";
 
 export default function ElegantBlueLoginPage() {
   const router = useRouter();
@@ -18,14 +18,11 @@ export default function ElegantBlueLoginPage() {
   const [remember, setRemember] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   
-  // State baru untuk menampung pesan error dari Supabase
+  // State untuk menampung pesan error dari Supabase
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Inisialisasi Supabase Client
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // Inisialisasi Supabase Client menggunakan file utility yang baru
+  const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +83,8 @@ export default function ElegantBlueLoginPage() {
               </div>
             </div>
 
-            <p className="text-white text-xl lg:text-2xl font-medium leading-relaxed max-w-lg mb-10 text-slate-300">
+            {/* ERROR CSS CONFLICT DIPERBAIKI DI BARIS INI (text-white dihapus) */}
+            <p className="text-xl lg:text-2xl font-medium leading-relaxed max-w-lg mb-10 text-slate-300">
               Selamat datang kembali! Akses semua alat evaluasi modern Anda: LJK Generator, Auto-Scanner, CBT, dan Analisis Nilai.
             </p>
 
