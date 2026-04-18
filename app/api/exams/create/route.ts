@@ -38,12 +38,13 @@ export async function POST(req: Request) {
     }
 
     // ==============================================================
-    // KUNCI SINKRONISASI: Tarik semua santri dari kelas yang dipilih
+    // KUNCI SINKRONISASI: Tarik semua santri dari BANYAK KELAS sekaligus
     // ==============================================================
+    // className sekarang adalah Array, contoh: ["1A", "1B", "2A"]
     const { data: daftarSantri } = await supabase
       .from("Santri")
       .select("id")
-      .eq("kelas", className)
+      .in("kelas", className) // <-- Ubah dari .eq menjadi .in
       .eq("status", "Aktif");
 
     // 4. SIMPAN UJIAN DULU
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
         sekolah_id: guru.sekolah_id,
         guru_id: guru.id,
         nama_ujian: title,
-        kelas: className,
+        kelas: className.join(", "), // <-- Gabungkan nama kelas jadi string pisah koma
         tipe: "UAS", 
         metode: examType,
         durasi: duration,

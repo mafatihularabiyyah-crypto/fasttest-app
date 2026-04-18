@@ -2,67 +2,97 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { 
   ArrowLeft, DownloadSimple, FilePdf, SlidersHorizontal, 
   TextAUnderline, Hash, CheckCircle, Scan, Trash, Plus, 
   IdentificationBadge, ImageSquare, FloppyDisk, NotePencil,
-  FileText, GridFour, Wrench
+  FileText, GridFour, Wrench, Archive, MagnifyingGlass, CaretDown, FolderOpen
 } from "@phosphor-icons/react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 export default function LJKGeneratorFinal() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const reprintId = searchParams.get('reprint');
 
-  // --- DATA BASE64 LOGO TARBIYAH TECH ---
   const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJTSURBVHgB7d0xbhNREIDh90IsiYIuDR0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDR0XoKInpKQEDX0XoKKf/R9fA/E705cAAAAASUVORK5CYII=";
 
-  // --- STATE ALUR HALAMAN ---
   const [viewState, setViewState] = useState<'select' | 'editor'>('select');
-
   const ljkRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- 1. STATE IDENTITAS & KOP ---
+  // --- STATE KOP & IDENTITAS ---
   const [kopSurat, setKopSurat] = useState("YAYASAN MAFATIHUL ISLAM\nSMA MAFATIHUL ARABIYYAH\nUJIAN MADRASAH TAHUN PELAJARAN 2025/2026");
   const [namaUjian, setNamaUjian] = useState("Mata Pelajaran Bahasa Arab");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [teksFooter, setTeksFooter] = useState("SISTEM OMR OTOMATIS TARBIYAHTECH - 2026");
   
-  // STATE SINKRONISASI KELAS
-  const [kelasTujuan, setKelasTujuan] = useState("");
+  // --- STATE MULTI-KELAS ---
+  const [kelasTujuan, setKelasTujuan] = useState<string[]>([]); // Sekarang Array
   const [daftarKelas, setDaftarKelas] = useState<string[]>([]);
+  
+  // --- STATE RIWAYAT & TEMPLATE ---
+  const [templateSekolah, setTemplateSekolah] = useState<any[]>([]);
+  const [riwayatUjian, setRiwayatUjian] = useState<any[]>([]);
+  const [searchRiwayat, setSearchRiwayat] = useState("");
+  const [visibleRiwayatCount, setVisibleRiwayatCount] = useState(10);
+  
+  // DUMMY FOLDER ARSIP TAHUNAN (Bisa diganti dengan data dari API nanti)
+  const arsipTahunan = ["Tahun Ajaran 2023/2024", "Tahun Ajaran 2024/2025"];
 
-  // Mengambil daftar kelas dari database saat halaman dimuat
   useEffect(() => {
-    fetch('/api/classes')
+    // Load Kelas
+    fetch('/api/santri')
       .then(res => res.json())
       .then(data => {
         if(Array.isArray(data) && data.length > 0) {
-          setDaftarKelas(data);
-          setKelasTujuan(data[0]); // Pilih kelas pertama otomatis
+          const uniqueClasses = Array.from(new Set(data.map((s: any) => s.kelas))).sort() as string[];
+          if (uniqueClasses.length > 0) setDaftarKelas(uniqueClasses);
         }
-      })
-      .catch(err => console.error("Gagal load kelas:", err));
+      });
+
+    // Load Template Sekolah
+    fetch('/api/ujian/template')
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setTemplateSekolah(data); });
+
+    // Load SELURUH Riwayat Ujian
+    fetch('/api/arsip')
+      .then(res => res.json())
+      .then(data => { if (Array.isArray(data)) setRiwayatUjian(data); });
   }, []);
+
+  useEffect(() => {
+    if (reprintId) {
+      fetch(`/api/arsip?ujianId=${reprintId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.soal) {
+            setNamaUjian(data.namaUjian + " (REPRINT)");
+            // Handle jika kelasnya banyak (string pisah koma dari DB)
+            setKelasTujuan(data.kelas.split(",").map((k:string) => k.trim()));
+            setJumlahSoal(data.soal.length);
+            if (data.soal.length > 0 && data.soal[0].opsi) setJumlahPilihan(data.soal[0].opsi.length);
+            setViewState('editor');
+          }
+        });
+    }
+  }, [reprintId]);
   
   const [identitasList, setIdentitasList] = useState([
-    { id: 1, label: "NAMA LENGKAP" },
-    { id: 2, label: "KELAS / JURUSAN" },
-    { id: 3, label: "TANGGAL UJIAN" },
-    { id: 4, label: "TANDA TANGAN" }
+    { id: 1, label: "NAMA LENGKAP" }, { id: 2, label: "KELAS / JURUSAN" },
+    { id: 3, label: "TANGGAL UJIAN" }, { id: 4, label: "TANDA TANGAN" }
   ]);
   
-  // --- 2. STATE STRUKTUR SOAL ---
+  // --- STATE STRUKTUR LJK ---
   const [jumlahSoal, setJumlahSoal] = useState(40);
   const [jumlahPilihan, setJumlahPilihan] = useState(4); 
   const [tipePilihan, setTipePilihan] = useState<"huruf" | "angka" | "bs">("huruf");
   const [kolom, setKolom] = useState(3);
   const [poinRata, setPoinRata] = useState(2.5);
-
-  // --- 3. STATE ADVANCED (SCANNER, KODE UJIAN, & ESAI) ---
   const [useAnchor, setUseAnchor] = useState(true);
   const [modeIdentitas, setModeIdentitas] = useState<"nis" | "barcode">("nis");
   const [jumlahDigitNIS, setJumlahDigitNIS] = useState(6);
@@ -72,67 +102,72 @@ export default function LJKGeneratorFinal() {
   const [tinggiEsaiCM, setTinggiEsaiCM] = useState(8); 
 
   // --- FUNGSI CUSTOM ---
+  const toggleKelas = (kls: string) => {
+    setKelasTujuan(prev => prev.includes(kls) ? prev.filter(k => k !== kls) : [...prev, kls]);
+  };
+
   const handleSelectTemplate = (type: string) => {
-    if (type === 'PG_AD') {
-      setJumlahSoal(40); setKolom(3); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("huruf");
-    } else if (type === 'BS') {
-      setJumlahSoal(30); setKolom(3); setUseEsai(false); setJumlahPilihan(2); setTipePilihan("bs");
-    } else if (type === 'SKOR_14') {
-      setJumlahSoal(30); setKolom(3); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("angka");
-    } else if (type === 'CUSTOM') {
-      // Masuk editor tanpa reset state
+    if (type === 'PG_AD') { setJumlahSoal(40); setKolom(3); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("huruf"); } 
+    else if (type === 'BS') { setJumlahSoal(30); setKolom(3); setUseEsai(false); setJumlahPilihan(2); setTipePilihan("bs"); } 
+    else if (type === 'SKOR_14') { setJumlahSoal(30); setKolom(3); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("angka"); } 
+    setViewState('editor');
+  };
+
+  const handleSelectTemplateSekolah = (template: any) => {
+    setJumlahSoal(template.jumlah_soal || 40);
+    setJumlahPilihan(template.jumlah_opsi || 5);
+    setTipePilihan("huruf"); 
+    if (template.struktur_kanvas_json) {
+      if (template.struktur_kanvas_json.kop) setKopSurat(template.struktur_kanvas_json.kop);
+      if (template.struktur_kanvas_json.logo) setLogoUrl(template.struktur_kanvas_json.logo);
     }
     setViewState('editor');
+  };
+
+  const handleGunakanRiwayatLama = async (id: string) => {
+    try {
+      const res = await fetch(`/api/arsip?ujianId=${id}`);
+      const data = await res.json();
+      if (data && data.soal) {
+        setJumlahSoal(data.soal.length);
+        if (data.soal.length > 0 && data.soal[0].opsi) setJumlahPilihan(data.soal[0].opsi.length);
+        setTipePilihan("huruf"); 
+        setViewState('editor');
+      }
+    } catch (error) { alert("Gagal mengambil struktur ujian lama."); }
   };
 
   const ubahIdentitas = (id: number, val: string) => setIdentitasList(identitasList.map(item => item.id === id ? { ...item, label: val } : item));
   const hapusIdentitas = (id: number) => setIdentitasList(identitasList.filter(item => item.id !== id));
   const tambahIdentitas = () => setIdentitasList([...identitasList, { id: Date.now(), label: "DATA BARU" }]);
-
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => setLogoUrl(event.target?.result as string);
-      reader.readAsDataURL(file);
-    }
+    if (file) { const reader = new FileReader(); reader.onload = (event) => setLogoUrl(event.target?.result as string); reader.readAsDataURL(file); }
   };
   const hapusLogo = () => setLogoUrl(null);
 
-  // =======================================================================
-  // FUNGSI SIMPAN KE DATABASE (INTEGRASI API)
-  // =======================================================================
+  // --- FUNGSI API ---
   const handleSimpanUjian = async () => {
-    if (!namaUjian || !kelasTujuan) {
-      return alert("Nama Ujian dan Kelas Tujuan wajib diisi!");
-    }
-
+    if (!namaUjian || kelasTujuan.length === 0) return alert("Nama Ujian dan minimal 1 Kelas Tujuan wajib diisi!");
     setIsSaving(true);
     try {
-      // Buat struktur soal bayangan berdasarkan settingan LJK untuk disimpan di Database.
       const questionsData = Array.from({ length: jumlahSoal }).map((_, idx) => ({
         type: tipePilihan === 'bs' ? 'bs' : tipePilihan === 'angka' ? 'angka14' : 'pg',
         text: `Soal LJK No. ${idx + 1}`,
         options: Array.from({ length: jumlahPilihan }).map((__, optIdx) => ({
-          text: getOptionLabel(optIdx),
-          isCorrect: optIdx === 0, // Kunci default otomatis
-          points: poinRata
+          text: getOptionLabel(optIdx), isCorrect: optIdx === 0, points: poinRata
         }))
       }));
 
-      // Generate Token Ujian secara acak
-      const generatedToken = useKodeUjian 
-        ? Math.floor(Math.random() * Math.pow(10, jumlahDigitKodeUjian)).toString().padStart(jumlahDigitKodeUjian, '0')
-        : `LJK-${Date.now().toString().slice(-4)}`;
+      const generatedToken = useKodeUjian ? Math.floor(Math.random() * Math.pow(10, jumlahDigitKodeUjian)).toString().padStart(jumlahDigitKodeUjian, '0') : `LJK-${Date.now().toString().slice(-4)}`;
 
-      // Tembak ke API Endpoint
       const response = await fetch('/api/exams/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: namaUjian,
-          className: kelasTujuan,
-          teacherName: "Ustadz Budi Santoso", 
+          className: kelasTujuan, // Mengirim ARRAY kelas
+          teacherName: "Ustadz/Ustadzah", 
           duration: 90,
           token: generatedToken,
           examType: "LJK", 
@@ -141,18 +176,12 @@ export default function LJKGeneratorFinal() {
       });
 
       if (response.ok) {
-        alert(`Berhasil! Format LJK "${namaUjian}" telah disinkronkan ke Database Arsip.\n\nKode/Token Ujian: ${generatedToken}`);
+        alert(`Berhasil! Format LJK telah disinkronkan ke Arsip.\nKode Ujian: ${generatedToken}`);
         router.push('/guru/arsip');
       } else {
-        const errorData = await response.json();
-        alert(`Gagal menyimpan: ${errorData.message}`);
+        const errorData = await response.json(); alert(`Gagal menyimpan: ${errorData.message}`);
       }
-    } catch (error) {
-      console.error("Database Error:", error);
-      alert("Gagal terhubung ke server database.");
-    } finally {
-      setIsSaving(false);
-    }
+    } catch (error) { alert("Gagal terhubung ke server database."); } finally { setIsSaving(false); }
   };
 
   const handleExport = async (format: 'png' | 'pdf') => {
@@ -162,18 +191,11 @@ export default function LJKGeneratorFinal() {
       await new Promise(resolve => setTimeout(resolve, 500));
       const canvas = await html2canvas(ljkRef.current, { scale: 3, useCORS: true, logging: false, backgroundColor: "#ffffff" });
       if (format === 'png') {
-        const dataURL = canvas.toDataURL("image/png");
-        const link = document.createElement("a");
-        link.href = dataURL; link.download = `LJK_${namaUjian.replace(/\s+/g, '_')}.png`; link.click();
+        const link = document.createElement("a"); link.href = canvas.toDataURL("image/png"); link.download = `LJK_${namaUjian.replace(/\s+/g, '_')}.png`; link.click();
       } else {
-        const imgData = canvas.toDataURL("image/jpeg", 1.0);
-        const pdf = new jsPDF("p", "mm", "a4");
-        pdf.addImage(imgData, "JPEG", 0, 0, 210, 297);
-        pdf.save(`LJK_${namaUjian.replace(/\s+/g, '_')}.pdf`);
+        const pdf = new jsPDF("p", "mm", "a4"); pdf.addImage(canvas.toDataURL("image/jpeg", 1.0), "JPEG", 0, 0, 210, 297); pdf.save(`LJK_${namaUjian.replace(/\s+/g, '_')}.pdf`);
       }
-    } catch (err) {
-      console.error("Export Error:", err); alert("Terjadi kesalahan ekspor.");
-    }
+    } catch (err) { alert("Terjadi kesalahan ekspor."); }
     setIsExporting(false);
   };
 
@@ -183,72 +205,127 @@ export default function LJKGeneratorFinal() {
     return (index + 1).toString(); 
   };
 
-  const handlePilihTipe = (tipe: "huruf" | "angka" | "bs", jumlahOpsi: number) => {
-    setTipePilihan(tipe);
-    setJumlahPilihan(jumlahOpsi);
-  };
-
   const bubbleSize = jumlahPilihan > 8 ? 13 : jumlahPilihan > 5 ? 16 : 20;
   const fontSize = jumlahPilihan > 8 ? 6 : jumlahPilihan > 5 ? 8 : 10;
   const soalPerKolom = Math.ceil(jumlahSoal / kolom);
+
+  // Filter Data Riwayat
+  const filteredRiwayat = riwayatUjian.filter(r => 
+    r.namaUjian.toLowerCase().includes(searchRiwayat.toLowerCase()) || 
+    r.kelas.toLowerCase().includes(searchRiwayat.toLowerCase())
+  );
+  const displayedRiwayat = filteredRiwayat.slice(0, visibleRiwayatCount);
 
   // =======================================================================
   // RENDER VIEW 1: MENU PILIH TEMPLATE
   // =======================================================================
   if (viewState === 'select') {
     return (
-      <div className="min-h-screen bg-[#f8fafc] font-sans flex flex-col items-center relative overflow-hidden pt-24 px-6">
+      <div className="min-h-screen bg-[#f8fafc] font-sans flex flex-col items-center relative overflow-x-hidden pt-24 px-6 pb-24">
         <div className="absolute top-0 left-0 w-full h-[45vh] bg-[#1d4ed8] rounded-b-[2.5rem] pointer-events-none"></div>
-        <Link href="/guru" className="absolute top-8 left-8 p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-all cursor-pointer">
+        <Link href="/guru/arsip" className="absolute top-8 left-8 p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-all cursor-pointer">
           <ArrowLeft size={24} weight="bold" />
         </Link>
 
         <div className="relative z-10 text-center mb-12 mt-8">
           <h1 className="text-4xl lg:text-5xl font-black text-white tracking-tight mb-4">Pilih Template LJK</h1>
-          <p className="text-blue-100 font-medium max-w-lg mx-auto text-sm lg:text-base">Gunakan template standar agar LJK Anda bisa langsung dicetak, atau buat desain LJK custom dari nol.</p>
+          <p className="text-blue-100 font-medium max-w-lg mx-auto text-sm lg:text-base">Gunakan template standar, format sekolah, atau duplikasi LJK yang pernah Anda buat.</p>
         </div>
 
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl w-full">
-          {/* Card 1: Pilihan Ganda */}
-          <div onClick={() => handleSelectTemplate('PG_AD')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-transparent hover:border-blue-400 transition-all group cursor-pointer">
-            <div className="w-20 h-20 bg-blue-100 text-blue-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
-              <FileText size={40} weight="fill" />
-            </div>
+          {/* Template Dasar */}
+          <div onClick={() => handleSelectTemplate('PG_AD')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center hover:border-blue-400 border-2 border-transparent transition-all group cursor-pointer">
+            <div className="w-20 h-20 bg-blue-100 text-blue-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform"><FileText size={40} weight="fill" /></div>
             <h3 className="font-black text-slate-800 text-xl mb-2">Pilihan Ganda</h3>
             <p className="text-xs font-bold text-slate-400 mb-8 leading-relaxed">40 Pilihan Ganda (A-D)<br/>Tanpa Esai</p>
-            <button className="w-full py-3.5 bg-slate-50 text-slate-600 font-black rounded-xl group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors uppercase tracking-widest text-[10px]">PILIH INI</button>
           </div>
-
-          {/* Card 2: Benar/Salah */}
-          <div onClick={() => handleSelectTemplate('BS')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-transparent hover:border-emerald-400 transition-all group relative overflow-hidden cursor-pointer">
-            <div className="absolute top-0 right-8 bg-emerald-500 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-b-xl shadow-sm z-10">PALING LARIS</div>
-            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
-              <CheckCircle size={40} weight="fill" />
-            </div>
+          <div onClick={() => handleSelectTemplate('BS')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center hover:border-emerald-400 border-2 border-transparent transition-all group cursor-pointer">
+            <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform"><CheckCircle size={40} weight="fill" /></div>
             <h3 className="font-black text-slate-800 text-xl mb-2">Benar / Salah</h3>
             <p className="text-xs font-bold text-slate-400 mb-8 leading-relaxed">30 Soal (B/S)<br/>Tanpa Esai</p>
-            <button className="w-full py-3.5 bg-slate-50 text-slate-600 font-black rounded-xl group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors uppercase tracking-widest text-[10px]">PILIH INI</button>
           </div>
-
-          {/* Card 3: Skor 1-4 */}
-          <div onClick={() => handleSelectTemplate('SKOR_14')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-transparent hover:border-purple-400 transition-all group cursor-pointer">
-            <div className="w-20 h-20 bg-purple-100 text-purple-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform">
-              <GridFour size={40} weight="fill" />
-            </div>
+          <div onClick={() => handleSelectTemplate('SKOR_14')} className="bg-white p-8 rounded-3xl shadow-xl flex flex-col items-center text-center hover:border-purple-400 border-2 border-transparent transition-all group cursor-pointer">
+            <div className="w-20 h-20 bg-purple-100 text-purple-500 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:scale-105 transition-transform"><GridFour size={40} weight="fill" /></div>
             <h3 className="font-black text-slate-800 text-xl mb-2">Skor & Survei</h3>
             <p className="text-xs font-bold text-slate-400 mb-8 leading-relaxed">30 Soal Angka (1-4)<br/>Tanpa Esai</p>
-            <button className="w-full py-3.5 bg-slate-50 text-slate-600 font-black rounded-xl group-hover:bg-purple-50 group-hover:text-purple-600 transition-colors uppercase tracking-widest text-[10px]">PILIH INI</button>
           </div>
-
-          {/* Card 4: Custom */}
-          <div onClick={() => handleSelectTemplate('CUSTOM')} className="bg-[#1e293b] p-8 rounded-3xl shadow-xl flex flex-col items-center text-center border-2 border-[#334155] hover:border-slate-400 transition-all group cursor-pointer">
-            <div className="w-20 h-20 bg-[#334155] text-slate-300 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:rotate-12 transition-transform">
-              <Wrench size={40} weight="fill" />
-            </div>
+          <div onClick={() => handleSelectTemplate('CUSTOM')} className="bg-[#1e293b] p-8 rounded-3xl shadow-xl flex flex-col items-center text-center hover:border-slate-400 border-2 border-[#334155] transition-all group cursor-pointer">
+            <div className="w-20 h-20 bg-[#334155] text-slate-300 rounded-[1.5rem] flex items-center justify-center mb-6 group-hover:rotate-12 transition-transform"><Wrench size={40} weight="fill" /></div>
             <h3 className="font-black text-white text-xl mb-2">Desain Custom</h3>
             <p className="text-xs font-medium text-slate-400 mb-8 leading-relaxed">Atur sendiri jumlah soal, opsi, kolom, dan esai.</p>
-            <button className="w-full py-3.5 bg-[#334155] text-white font-black rounded-xl group-hover:bg-[#475569] transition-colors uppercase tracking-widest text-[10px]">BUAT DARI NOL</button>
           </div>
+
+          {/* Template Master Sekolah */}
+          {templateSekolah.length > 0 && (
+            <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-8 pt-8 border-t border-blue-400/30">
+              <h2 className="text-xl font-black text-slate-800 tracking-widest uppercase mb-6 flex items-center gap-2"><Archive size={24} className="text-blue-600"/> Template Resmi Sekolah</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {templateSekolah.map((tpl) => (
+                  <div key={tpl.id} onClick={() => handleSelectTemplateSekolah(tpl)} className="bg-gradient-to-br from-indigo-50 to-blue-50 p-6 rounded-3xl shadow-xl border-2 border-indigo-100 hover:border-indigo-400 hover:-translate-y-1 transition-all cursor-pointer group">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="bg-indigo-600 text-white p-3 rounded-xl shadow-md"><FilePdf size={24} weight="fill" /></div>
+                      <span className="bg-indigo-100 text-indigo-700 text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest">MASTER LJK</span>
+                    </div>
+                    <h3 className="font-black text-slate-800 text-lg mb-1 leading-tight">{tpl.nama_template}</h3>
+                    <div className="flex gap-2 mt-4">
+                      <span className="bg-white border border-indigo-100 text-indigo-600 text-xs font-bold px-3 py-1.5 rounded-lg flex-1 text-center">{tpl.jumlah_soal} Soal</span>
+                      <span className="bg-white border border-indigo-100 text-indigo-600 text-xs font-bold px-3 py-1.5 rounded-lg flex-1 text-center">{tpl.jumlah_opsi} Opsi</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Riwayat LJK Sebelumnya + Pencarian */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-8 pt-8 border-t border-slate-200">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+              <h2 className="text-xl font-black text-slate-800 tracking-widest uppercase flex items-center gap-2">
+                <FileText size={24} className="text-slate-400"/> Riwayat Ujian LJK Anda
+              </h2>
+              <div className="relative w-full md:w-72">
+                <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="text" placeholder="Cari nama ujian atau kelas..." 
+                  value={searchRiwayat} onChange={(e) => { setSearchRiwayat(e.target.value); setVisibleRiwayatCount(10); }}
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                />
+              </div>
+            </div>
+
+            {displayedRiwayat.length === 0 ? (
+              <p className="text-center text-slate-400 font-bold py-8">Tidak ada riwayat LJK yang ditemukan.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {displayedRiwayat.map((riwayat) => (
+                  <div key={riwayat.id} onClick={() => handleGunakanRiwayatLama(riwayat.id)} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group flex flex-col">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="bg-slate-100 text-slate-500 p-2 rounded-lg group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors"><FileText size={20} weight="fill" /></div>
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-2 py-1 rounded">{riwayat.tanggal.split(' ')[0]}</span>
+                    </div>
+                    <h3 className="font-bold text-slate-800 text-sm mb-1 leading-tight line-clamp-2">{riwayat.namaUjian}</h3>
+                    <p className="text-[10px] font-bold text-slate-400 mb-4">{riwayat.kelas}</p>
+                    <div className="mt-auto pt-3 border-t border-slate-100">
+                      <button className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1 group-hover:gap-2 transition-all">Gunakan Format Ini &rarr;</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Tombol Selanjutnya (Pagination) */}
+            {visibleRiwayatCount < filteredRiwayat.length && (
+              <div className="mt-6 flex justify-center">
+                <button 
+                  onClick={() => setVisibleRiwayatCount(prev => prev + 10)}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 hover:text-blue-600 transition-all shadow-sm text-xs uppercase tracking-widest"
+                >
+                  Tampilkan Selanjutnya <CaretDown size={16} weight="bold" />
+                </button>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     );
@@ -259,17 +336,15 @@ export default function LJKGeneratorFinal() {
   // =======================================================================
   return (
     <div className="min-h-screen bg-[#f1f5f9] flex overflow-hidden font-sans">
-      {/* PANEL KIRI: PENGATURAN */}
       <div className="w-[420px] bg-white border-r border-[#e2e8f0] flex flex-col h-screen overflow-y-auto z-20 shadow-xl scrollbar-hide shrink-0">
         <div className="p-6 bg-[#1d4ed8] text-white sticky top-0 z-10 shadow-sm">
           <div className="flex justify-between items-center mb-2">
             <div className="flex items-center gap-3">
-              <button onClick={() => setViewState('select')} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-all cursor-pointer" title="Kembali Pilih Template"><ArrowLeft size={18} weight="bold" /></button>
+              <button onClick={() => setViewState('select')} className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg transition-all"><ArrowLeft size={18} weight="bold" /></button>
               <h1 className="text-lg font-black tracking-tight uppercase">LJK Editor</h1>
             </div>
-            <button onClick={() => setViewState('select')} className="text-[10px] font-bold bg-white/10 hover:bg-white/20 px-2 py-1 rounded cursor-pointer">Ganti Template</button>
+            <button onClick={() => setViewState('select')} className="text-[10px] font-bold bg-white/10 hover:bg-white/20 px-2 py-1 rounded">Ganti Template</button>
           </div>
-          <p className="text-xs text-blue-100 font-medium">Pengaturan Kertas TarbiyahTech</p>
         </div>
 
         <div className="p-5 space-y-6">
@@ -292,18 +367,24 @@ export default function LJKGeneratorFinal() {
               <input type="text" value={namaUjian} onChange={(e) => setNamaUjian(e.target.value)} className="w-full p-3 text-xs font-bold border border-[#cbd5e1] rounded-xl outline-none uppercase" />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500">Kelas Tujuan (Database)</label>
-              <select 
-                value={kelasTujuan} 
-                onChange={(e) => setKelasTujuan(e.target.value)} 
-                className="w-full p-3 text-xs font-bold border border-blue-300 bg-blue-50 text-blue-800 rounded-xl outline-none uppercase cursor-pointer"
-              >
-                {daftarKelas.length === 0 && <option value="">Memuat daftar kelas...</option>}
-                {daftarKelas.map(kelas => (
-                  <option key={kelas} value={kelas}>{kelas}</option>
-                ))}
-              </select>
+            {/* KOMPONEN MULTI-KELAS (PILLS) */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-slate-500 block">Pilih Kelas (Bisa Lebih Dari Satu)</label>
+              {daftarKelas.length === 0 ? (
+                 <p className="text-xs text-slate-400 italic">Memuat daftar kelas...</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {daftarKelas.map(kelas => (
+                    <button 
+                      key={kelas} 
+                      onClick={() => toggleKelas(kelas)}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${kelasTujuan.includes(kelas) ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-slate-300 text-slate-600 hover:border-blue-400'}`}
+                    >
+                      {kelas}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1">
@@ -330,22 +411,14 @@ export default function LJKGeneratorFinal() {
 
           <div className="space-y-4">
             <label className="text-[10px] font-black text-[#94a3b8] uppercase tracking-widest flex items-center gap-2"><SlidersHorizontal size={14} /> Struktur & Penilaian</label>
-            
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => handlePilihTipe("huruf", 4)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'huruf' && jumlahPilihan === 4 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>A-D</button>
-              <button onClick={() => handlePilihTipe("huruf", 5)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'huruf' && jumlahPilihan === 5 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>A-E</button>
-              <button onClick={() => handlePilihTipe("bs", 2)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'bs' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>B/S</button>
-              <button onClick={() => handlePilihTipe("angka", 4)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'angka' && jumlahPilihan === 4 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>1-4</button>
-              <button onClick={() => handlePilihTipe("angka", 5)} className={`px-3 py-2 text-[11px] font-bold rounded-lg border cursor-pointer ${tipePilihan === 'angka' && jumlahPilihan === 5 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-[#cbd5e1] text-[#64748b]'}`}>1-5</button>
+              <button onClick={() => {setTipePilihan('huruf'); setJumlahPilihan(4);}} className={`px-3 py-2 text-[11px] font-bold rounded-lg border ${tipePilihan === 'huruf' && jumlahPilihan === 4 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white text-[#64748b]'}`}>A-D</button>
+              <button onClick={() => {setTipePilihan('huruf'); setJumlahPilihan(5);}} className={`px-3 py-2 text-[11px] font-bold rounded-lg border ${tipePilihan === 'huruf' && jumlahPilihan === 5 ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white text-[#64748b]'}`}>A-E</button>
+              <button onClick={() => {setTipePilihan('bs'); setJumlahPilihan(2);}} className={`px-3 py-2 text-[11px] font-bold rounded-lg border ${tipePilihan === 'bs' ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white text-[#64748b]'}`}>B/S</button>
             </div>
-            
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Jumlah Soal PG</span><input type="number" min="1" value={jumlahSoal} onChange={(e) => setJumlahSoal(Number(e.target.value))} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-bold text-sm outline-none" /></div>
-              <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Opsi per Soal (Manual)</span><input type="number" min="2" max="10" value={jumlahPilihan} onChange={(e) => setJumlahPilihan(Number(e.target.value))} disabled={tipePilihan === 'bs'} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-bold text-sm outline-none disabled:opacity-50" /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-               <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Kolom Kertas</span><input type="number" min="1" max="6" value={kolom} onChange={(e) => setKolom(Number(e.target.value))} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-black text-blue-600 outline-none" /></div>
-               <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Poin / Soal</span><input type="number" step="0.5" value={poinRata} onChange={(e) => setPoinRata(Number(e.target.value))} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-black text-blue-600 outline-none" /></div>
+              <div className="space-y-1"><span className="text-[10px] font-bold text-[#64748b]">Kolom Kertas</span><input type="number" min="1" max="6" value={kolom} onChange={(e) => setKolom(Number(e.target.value))} className="w-full p-2 border border-[#cbd5e1] rounded-lg font-black text-blue-600 outline-none" /></div>
             </div>
           </div>
 
@@ -387,8 +460,8 @@ export default function LJKGeneratorFinal() {
         </div>
 
         <div className="mt-auto p-4 border-t border-[#f1f5f9] bg-white sticky bottom-0 z-20 space-y-2 shadow-[0_-10px_20px_rgba(0,0,0,0.05)]">
-          <button onClick={handleSimpanUjian} disabled={isSaving} className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-all shadow-lg uppercase tracking-widest text-xs disabled:opacity-70 cursor-pointer">
-            {isSaving ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : <><FloppyDisk size={20} weight="fill" /> Simpan Ke Arsip</>}
+          <button onClick={handleSimpanUjian} disabled={isSaving || !!reprintId} className="w-full flex items-center justify-center gap-2 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black transition-all shadow-lg uppercase tracking-widest text-xs disabled:opacity-70 cursor-pointer">
+            {isSaving ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : !!reprintId ? "MODE CETAK ULANG" : <><FloppyDisk size={20} weight="fill" /> Simpan Ke Arsip</>}
           </button>
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => handleExport('png')} disabled={isExporting} className="flex items-center justify-center gap-2 py-2.5 bg-[#1e293b] text-white rounded-xl font-bold transition-all hover:bg-black cursor-pointer"><DownloadSimple size={16} /> <span className="text-[10px]">EXPORT PNG</span></button>
@@ -397,7 +470,6 @@ export default function LJKGeneratorFinal() {
         </div>
       </div>
 
-      {/* PANEL KANAN: LIVE PREVIEW (KERTAS A4) */}
       <div className="flex-1 bg-[#cbd5e1] overflow-auto p-8 lg:p-12 flex justify-center scrollbar-hide">
         {isExporting && <div className="fixed inset-0 z-50 bg-white/80 backdrop-blur flex items-center justify-center font-black text-blue-600 animate-pulse text-xl">MEMPROSES DOKUMEN...</div>}
 

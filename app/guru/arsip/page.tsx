@@ -4,9 +4,9 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
 import { 
   FolderOpen, MagnifyingGlass, Faders, FileXls, PencilSimple, Trash, 
-  ArrowLeft, ChartBar, Eye, ListChecks, CheckCircle, XCircle, WarningCircle, 
+  ArrowLeft, ChartBar, Eye, EyeSlash, ListChecks, CheckCircle, XCircle, WarningCircle, 
   ChartLineUp, DownloadSimple, Info, Link as LinkIcon, FilePdf, ArrowSquareOut, 
-  FloppyDisk, NotePencil, Image as ImageIcon, Archive, UserCircle
+  FloppyDisk, NotePencil, Image as ImageIcon, Archive, UserCircle, Plus
 } from "@phosphor-icons/react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -16,15 +16,19 @@ export default function ArsipUjianPage() {
   const [folders, setFolders] = useState<any[]>([]);
   const [studentsData, setStudentsData] = useState<any[]>([]);
   const [kunciJawaban, setKunciJawaban] = useState<string[]>([]);
+  const [soalData, setSoalData] = useState<any[]>([]); 
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isOpeningFolder, setIsOpeningFolder] = useState(false);
 
-  // STATE NAVIGATION & MODALS
+  // STATE NAVIGATION, FILTER & MODALS
   const [activeView, setActiveView] = useState<"folder_list" | "folder_detail">("folder_list");
   const [selectedFolder, setSelectedFolder] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterYear, setFilterYear] = useState<string | null>(null); 
+  const [hiddenYears, setHiddenYears] = useState<string[]>([]); // State untuk tahun yang disembunyikan
 
   const [showEditKunci, setShowEditKunci] = useState(false);
+  const [isSavingKunci, setIsSavingKunci] = useState(false);
   const [showAnalisis, setShowAnalisis] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
   const [isSavingRemedial, setIsSavingRemedial] = useState(false);
@@ -39,9 +43,15 @@ export default function ArsipUjianPage() {
   const [selectedArchiveYear, setSelectedArchiveYear] = useState<string>("");
 
   // ====================================================================
-  // FETCH DATA FOLDER DARI DATABASE SAAT HALAMAN DIBUKA
+  // FETCH DATA FOLDER & PENGATURAN HIDDEN YEARS
   // ====================================================================
   useEffect(() => {
+    // Membaca daftar tahun yang disembunyikan dari LocalStorage
+    const storedHiddenYears = localStorage.getItem('hiddenYears_tarbiyahtech');
+    if (storedHiddenYears) {
+      setHiddenYears(JSON.parse(storedHiddenYears));
+    }
+
     fetch('/api/arsip')
       .then(res => res.json())
       .then(data => {
@@ -50,8 +60,9 @@ export default function ArsipUjianPage() {
           nama: d.namaUjian,
           kelas: d.kelas,
           tanggal: new Date(d.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
-          pengajar: d.guru?.nama || "Sistem Default",
-          totalScan: d._count.hasilUjian, // Otomatis hitung siswa yang mengumpulkan
+          rawTanggal: d.tanggal.split('T')[0],
+          pengajar: d.guru?.nama || "Ustadz/Ustadzah",
+          totalScan: d._count.hasilUjian, 
           tipe: d.tipe,
           linkSoal: d.linkSoal || ""
         }));
@@ -64,30 +75,43 @@ export default function ArsipUjianPage() {
       });
   }, []);
 
+  // Fitur Menyembunyikan / Menampilkan Tahun di Dashboard
+  const toggleHideYear = (year: string) => {
+    let updated = [];
+    if (hiddenYears.includes(year)) {
+      updated = hiddenYears.filter(y => y !== year); // Tampilkan kembali
+    } else {
+      updated = [...hiddenYears, year]; // Sembunyikan
+      alert(`Tahun ${year} telah disembunyikan dari dashboard utama agar terlihat lebih rapi.\n\nAnda tetap bisa membukanya melalui folder "Arsip Data Tahunan" di bagian bawah layar.`);
+    }
+    setHiddenYears(updated);
+    localStorage.setItem('hiddenYears_tarbiyahtech', JSON.stringify(updated));
+  };
+
   // ====================================================================
-  // FETCH DATA DETAIL SANTRI & KUNCI JAWABAN SAAT FOLDER DIKLIK
+  // FETCH DETAIL FOLDER
   // ====================================================================
   const handleBukaFolder = async (folder: any) => {
     setSelectedFolder(folder);
     setActiveView("folder_detail");
     setIsOpeningFolder(true);
-    setStudentsData([]); // Kosongkan data lama
+    setStudentsData([]); 
     
     try {
       const res = await fetch(`/api/arsip?ujianId=${folder.id}`);
       const data = await res.json();
 
-      // 1. Ekstrak Kunci Jawaban Dinamis
+      setSoalData(data.soal);
+
       const kunci = data.soal.map((s: any) => {
-        const opsiBenar = s.opsi.find((o: any) => o.isCorrect);
+        const opsiBenar = s.opsi.find((o: any) => o.is_correct);
         return opsiBenar ? opsiBenar.label : '-';
       });
       setKunciJawaban(kunci);
 
-      // 2. Ekstrak Data Santri & Nilai
       const students = data.hasilUjian.map((h: any) => {
         let answersText = [];
-        try { answersText = JSON.parse(h.answersJson); } catch(e) {}
+        try { answersText = JSON.parse(h.answersJson || "[]"); } catch(e) {}
         
         return {
           id: h.id,
@@ -113,8 +137,57 @@ export default function ArsipUjianPage() {
     }
   };
 
+  // ====================================================================
+  // API CALLS: EDIT & DELETE
+  // ====================================================================
+  const handleSimpanEditFolder = async () => {
+    setIsLoadingData(true);
+    try {
+      const res = await fetch('/api/arsip', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: modalEditFolder.data.id, 
+          namaUjian: modalEditFolder.data.nama,
+          kelas: modalEditFolder.data.kelas,
+          tipe: modalEditFolder.data.tipe,
+          tanggal: modalEditFolder.data.rawTanggal
+        })
+      });
+      if (res.ok) {
+        setFolders(folders.map(f => f.id === modalEditFolder.data.id ? { 
+          ...f, 
+          nama: modalEditFolder.data.nama,
+          kelas: modalEditFolder.data.kelas,
+          tipe: modalEditFolder.data.tipe,
+          tanggal: new Date(modalEditFolder.data.rawTanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+          rawTanggal: modalEditFolder.data.rawTanggal
+        } : f));
+        setModalEditFolder({isOpen: false, data: null});
+      } else {
+        alert("Gagal memperbarui data folder.");
+      }
+    } catch (error) {
+      alert("Terjadi kesalahan jaringan.");
+    }
+    setIsLoadingData(false);
+  };
 
-  // Deteksi tahun berapa saja yang tersedia di folder untuk dropdown
+  const handleEksekusiHapusFolder = async () => {
+    setIsLoadingData(true);
+    try {
+      const res = await fetch(`/api/arsip?id=${modalHapusFolder.id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setFolders(folders.filter(f => f.id !== modalHapusFolder.id));
+        setModalHapusFolder({isOpen: false, id: null});
+        alert("Arsip Ujian berhasil dihapus permanen.");
+      }
+    } catch (error) {
+      alert("Gagal menghapus folder.");
+    }
+    setIsLoadingData(false);
+  };
+
   const availableYears = useMemo(() => {
     const years = folders.map(f => {
       const parts = f.tanggal.split(" ");
@@ -147,7 +220,6 @@ export default function ArsipUjianPage() {
     const maxDist = Math.max(distribution.A, distribution.B, distribution.C, distribution.D);
     const average = (sumNilai / totalSiswa).toFixed(1);
     
-    // Looping menyesuaikan jumlah kunci jawaban yang ada di Database
     const itemAnalysis = Array.from({ length: kunciJawaban.length }).map((_, questionIndex) => {
       const stats = { A: 0, B: 0, C: 0, D: 0, E: 0, Kosong: 0, Benar: 0 };
       const kunci = kunciJawaban[questionIndex] || '-';
@@ -186,7 +258,7 @@ export default function ArsipUjianPage() {
     }
   };
 
-  // --- AKSI INPUT & LINK (Optimistic UI - Nanti butuh API route PATCH untuk permanen) ---
+  // --- AKSI INPUT & LINK ---
   const handleRemedialChange = (id: number, val: string) => setStudentsData(prev => prev.map(s => s.id === id ? { ...s, remedialScore: val } : s));
   const handleSimpanRemedial = () => { setIsSavingRemedial(true); setTimeout(() => { setIsSavingRemedial(false); alert("Penilaian berhasil disimpan!"); }, 800); };
   const handleSimpanEsai = () => { setStudentsData(prev => prev.map(s => s.id === modalEsai.student.id ? { ...s, nilaiEsai: modalEsai.scoreInput } : s)); setModalEsai({isOpen: false, student: null, scoreInput: ""}); };
@@ -212,20 +284,18 @@ export default function ArsipUjianPage() {
     setIsExportingPDF(false);
   };
 
-  // --- EXPORT EXCEL MASTER ---
+  // --- EXPORT EXCEL ---
   const exportMultiSheetExcel = (isBackupAkhirTahun = false, targetYear = "") => {
     let xml = `<?xml version="1.0"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n<Styles><Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#1e40af" ss:Pattern="Solid"/></Style></Styles>`;
-    
     let targetFolders = folders;
     if (isBackupAkhirTahun && targetYear !== "") {
       targetFolders = folders.filter(f => f.tanggal.includes(targetYear));
     }
-
     if (targetFolders.length === 0) {
       xml += `<Worksheet ss:Name="Data Kosong"><Table><Row><Cell><Data ss:Type="String">Tidak ada data untuk diekspor pada tahun terpilih.</Data></Cell></Row></Table></Worksheet>`;
     } else {
       targetFolders.forEach(folder => {
-        const soalCount = kunciJawaban.length > 0 ? kunciJawaban.length : 10; // Fallback jika belum buka detail
+        const soalCount = kunciJawaban.length > 0 ? kunciJawaban.length : 10;
         xml += `<Worksheet ss:Name="${folder.nama.substring(0, 31).replace(/[\[\]\*?\:\/\\]/g, "")}"><Table><Row><Cell ss:StyleID="Header"><Data ss:Type="String">Nama Siswa</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">NIS</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Benar</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Salah</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Nilai Murni</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Nilai Remedial</Data></Cell><Cell ss:StyleID="Header"><Data ss:Type="String">Nilai Esai</Data></Cell>${Array.from({length: soalCount}).map((_, i) => `<Cell ss:StyleID="Header"><Data ss:Type="String">Soal ${i+1}</Data></Cell>`).join("")}</Row>`;
         
         studentsData.forEach(student => {
@@ -235,7 +305,6 @@ export default function ArsipUjianPage() {
         xml += `</Table></Worksheet>`;
       });
     }
-    
     xml += `</Workbook>`;
     const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
     const url = URL.createObjectURL(blob); const link = document.createElement("a");
@@ -258,9 +327,14 @@ export default function ArsipUjianPage() {
     if(!selectedArchiveYear) return;
     exportMultiSheetExcel(true, selectedArchiveYear);
     setTimeout(() => {
-      setFolders(prev => prev.filter(f => !f.tanggal.includes(selectedArchiveYear)));
+      // Sembunyikan tahun ini dari dashboard utama setelah di-download
+      if (!hiddenYears.includes(selectedArchiveYear)) {
+        const updated = [...hiddenYears, selectedArchiveYear];
+        setHiddenYears(updated);
+        localStorage.setItem('hiddenYears_tarbiyahtech', JSON.stringify(updated));
+      }
       setShowArchiveAllModal(false);
-      alert(`Backup berhasil diunduh! Folder ujian untuk tahun ${selectedArchiveYear} telah dibersihkan dari dashboard.`);
+      alert(`Backup Master Excel untuk tahun ${selectedArchiveYear} berhasil diunduh!\n\nData tahun tersebut kini disembunyikan dari dashboard utama agar lebih rapi, namun Anda tetap bisa mengaksesnya melalui folder "Arsip Data Tahunan".`);
     }, 1000);
   };
 
@@ -268,7 +342,19 @@ export default function ArsipUjianPage() {
   // RENDER VIEW 1: DAFTAR FOLDER UJIAN
   // ======================================================================
   if (activeView === "folder_list") {
-    const filteredFolders = folders.filter(f => f.nama.toLowerCase().includes(searchQuery.toLowerCase()) || f.pengajar.toLowerCase().includes(searchQuery.toLowerCase()));
+    // Logika Filter Pencarian & Tahun (Menyembunyikan tahun yang di-hide)
+    const filteredFolders = folders.filter(f => {
+      const matchQuery = f.nama.toLowerCase().includes(searchQuery.toLowerCase()) || f.pengajar.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (filterYear) {
+        // Jika sedang membuka folder tahunan spesifik, tampilkan saja walau statusnya 'hidden'
+        return matchQuery && f.tanggal.includes(filterYear);
+      } else {
+        // Jika di dashboard utama, jangan tampilkan folder yang tahunnya disembunyikan
+        const isHidden = hiddenYears.some(year => f.tanggal.includes(year));
+        return matchQuery && !isHidden;
+      }
+    });
 
     return (
       <div className="min-h-screen bg-[#f8fafc] font-sans p-8">
@@ -285,7 +371,10 @@ export default function ArsipUjianPage() {
               </div>
             </div>
             
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3 justify-end">
+              <Link href="/guru/ujian/buat" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-black transition-all shadow-lg shadow-blue-500/30 cursor-pointer active:scale-95">
+                <Plus size={20} weight="bold" /> Buat Ujian Baru
+              </Link>
               <button onClick={handleOpenArchiveModal} className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold transition-all shadow-lg shadow-slate-500/30 cursor-pointer active:scale-95">
                 <Archive size={20} weight="fill" /> Arsipkan Tahunan
               </button>
@@ -306,18 +395,40 @@ export default function ArsipUjianPage() {
             </div>
           </div>
 
-          {/* LOADING STATE */}
+          {/* BANNER FILTER TAHUN AKTIF (Di Dalam Folder Tahunan) */}
+          {filterYear && (
+            <div className="flex flex-col md:flex-row md:items-center justify-between bg-amber-50 border border-amber-200 p-4 rounded-2xl shadow-sm gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-amber-100 text-amber-500 rounded-xl"><FolderOpen size={24} weight="fill" /></div>
+                <div>
+                  <h3 className="font-black text-amber-800 text-lg">Menampilkan Arsip Tahun {filterYear}</h3>
+                  <p className="text-xs font-bold text-amber-600 mt-0.5">Ditemukan {filteredFolders.length} file ujian pada tahun ini.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button 
+                  onClick={() => toggleHideYear(filterYear)} 
+                  className={`px-4 py-2.5 font-bold rounded-xl text-xs transition-colors shadow-sm flex items-center gap-2 ${hiddenYears.includes(filterYear) ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-300' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'}`}
+                >
+                  {hiddenYears.includes(filterYear) ? <><Eye size={16} weight="bold"/> Tampilkan di Dashboard</> : <><EyeSlash size={16} weight="bold"/> Sembunyikan dari Utama</>}
+                </button>
+                <button onClick={() => setFilterYear(null)} className="px-5 py-2.5 bg-amber-500 text-white font-bold rounded-xl text-xs hover:bg-amber-600 transition-colors shadow-sm flex items-center gap-2">
+                  <ArrowLeft size={16} weight="bold" /> Kembali
+                </button>
+              </div>
+            </div>
+          )}
+
           {isLoadingData ? (
              <div className="text-center py-24 bg-white rounded-3xl border border-slate-200 mt-8 shadow-sm">
                 <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                 <h2 className="text-xl font-black text-slate-800">Menyinkronkan Data...</h2>
-                <p className="text-slate-500 mt-2 font-medium">Menarik riwayat ujian dan soal CBT dari database Anda.</p>
              </div>
-          ) : folders.length === 0 ? (
+          ) : filteredFolders.length === 0 ? (
             <div className="text-center py-24 bg-white rounded-3xl border border-slate-200 border-dashed mt-8">
               <Archive size={64} className="mx-auto text-slate-300 mb-4" weight="light" />
-              <h2 className="text-xl font-black text-slate-800">Arsip Masih Kosong</h2>
-              <p className="text-slate-500 mt-2 font-medium">Belum ada ujian CBT atau LJK yang disimpan ke database.</p>
+              <h2 className="text-xl font-black text-slate-800">Tidak Ada Data</h2>
+              <p className="text-slate-500 mt-2 font-medium">Belum ada ujian LJK yang dibuat pada kriteria ini.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -338,25 +449,13 @@ export default function ArsipUjianPage() {
                     </div>
                   </div>
                   
-                  <h3 className="text-lg font-black text-slate-800 leading-tight mb-1">{folder.nama}</h3>
+                  <h3 className="text-lg font-black text-slate-800 leading-tight mb-1 line-clamp-2" title={folder.nama}>{folder.nama}</h3>
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-2">
-                    <span className="bg-slate-100 px-2 py-1 rounded border border-slate-200">{folder.kelas}</span> • <span>{folder.tanggal}</span>
+                    <span className="bg-slate-100 px-2 py-1 rounded border border-slate-200 truncate max-w-[120px] inline-block" title={folder.kelas}>{folder.kelas}</span> • <span>{folder.tanggal}</span>
                   </div>
                   
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 mb-6">
                     <UserCircle size={16} weight="fill" className="text-slate-300"/> {folder.pengajar}
-                  </div>
-
-                  <div className="mb-4">
-                    {folder.linkSoal ? (
-                      <a href={folder.linkSoal} target="_blank" rel="noreferrer" className="flex justify-center items-center gap-2 w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-colors">
-                        <ArrowSquareOut size={16} weight="bold"/> Buka Arsip Soal
-                      </a>
-                    ) : (
-                      <button onClick={() => setModalLinkSoal({isOpen: true, folderId: folder.id, url: ""})} className="flex justify-center items-center gap-2 w-full py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 border-dashed text-slate-500 hover:text-indigo-600 rounded-lg text-xs font-bold transition-colors">
-                        <LinkIcon size={16} weight="bold"/> Upload Link Soal
-                      </button>
-                    )}
                   </div>
 
                   <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
@@ -372,8 +471,141 @@ export default function ArsipUjianPage() {
             </div>
           )}
 
-          {/* SISA KODE MODAL FOLDER LIST (Sama persis seperti milik Anda) */}
-          {/* ... (Modal Archive, Edit, Delete, Link Soal ada di sini) ... */}
+          {/* ========================================================= */}
+          {/* FOLDER ARSIP TAHUNAN DI BAWAH (DINAMIS DARI DATABASE)     */}
+          {/* ========================================================= */}
+          {!filterYear && availableYears.length > 0 && (
+            <div className="col-span-1 md:col-span-2 lg:col-span-4 mt-16 pt-12 border-t-2 border-slate-200/60 border-dashed">
+               <div className="text-center mb-8">
+                 <h2 className="text-2xl font-black text-slate-800 tracking-widest uppercase mb-2 flex items-center justify-center gap-2">
+                   <FolderOpen size={28} className="text-amber-500" weight="fill"/> Arsip Data Tahunan
+                 </h2>
+                 <p className="text-sm font-medium text-slate-500">Kumpulan riwayat ujian yang dikelompokkan berdasarkan tahun pelaksanaannya.</p>
+               </div>
+               
+               <div className="flex flex-wrap justify-center gap-4">
+                  {availableYears.map((tahun, idx) => {
+                    const countFile = folders.filter(f => f.tanggal.includes(tahun)).length;
+                    const isHidden = hiddenYears.includes(tahun);
+                    return (
+                      <div key={idx} 
+                        onClick={() => {
+                          setFilterYear(tahun);
+                          window.scrollTo({ top: 0, behavior: 'smooth' }); 
+                        }} 
+                        className="flex items-center gap-3 bg-amber-50 border border-amber-200 px-6 py-4 rounded-2xl shadow-sm cursor-pointer hover:bg-amber-100 hover:-translate-y-1 transition-all relative"
+                      >
+                        {isHidden && <div className="absolute -top-2 -right-2 bg-slate-800 text-white text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1"><EyeSlash size={10} weight="bold"/> TERSEMBUNYI</div>}
+                        <FolderOpen size={32} weight="fill" className="text-amber-500" />
+                        <div className="text-left">
+                          <h4 className="font-black text-slate-800 text-sm">Tahun {tahun}</h4>
+                          <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">
+                            {countFile} File Tersimpan
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+               </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* MODAL 1: EDIT FOLDER LENGKAP                              */}
+          {/* ========================================================= */}
+          {modalEditFolder.isOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl">
+                <h3 className="text-lg font-black text-slate-800 mb-4">Edit Data Arsip Ujian</h3>
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Nama Ujian</label>
+                    <input type="text" value={modalEditFolder.data.nama} onChange={(e) => setModalEditFolder({...modalEditFolder, data: {...modalEditFolder.data, nama: e.target.value}})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700"/>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Kelas</label>
+                      <input type="text" value={modalEditFolder.data.kelas} onChange={(e) => setModalEditFolder({...modalEditFolder, data: {...modalEditFolder.data, kelas: e.target.value}})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Tipe Ujian</label>
+                      <select value={modalEditFolder.data.tipe} onChange={(e) => setModalEditFolder({...modalEditFolder, data: {...modalEditFolder.data, tipe: e.target.value}})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700 cursor-pointer">
+                        <option value="UH">UH (Harian)</option><option value="UTS">UTS (Tengah Smt)</option><option value="UAS">UAS (Akhir Smt)</option><option value="Tugas">Tugas</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 block">Tanggal Pelaksanaan</label>
+                    <input type="date" value={modalEditFolder.data.rawTanggal} onChange={(e) => setModalEditFolder({...modalEditFolder, data: {...modalEditFolder.data, rawTanggal: e.target.value}})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700"/>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setModalEditFolder({isOpen: false, data: null})} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm transition-colors">Batal</button>
+                  <button onClick={handleSimpanEditFolder} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-colors shadow-md">Simpan Perubahan</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* MODAL 2: HAPUS FOLDER                                     */}
+          {/* ========================================================= */}
+          {modalHapusFolder.isOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl text-center">
+                <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4"><WarningCircle size={32} weight="fill" /></div>
+                <h3 className="text-lg font-black text-slate-800 mb-2">Hapus Arsip Ujian?</h3>
+                <p className="text-sm font-medium text-slate-500 mb-6">Data ini akan dihapus secara permanen beserta soal dan nilai santri di dalamnya.</p>
+                <div className="flex gap-3">
+                  <button onClick={() => setModalHapusFolder({isOpen: false, id: null})} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm transition-colors">Batal</button>
+                  <button onClick={handleEksekusiHapusFolder} className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-colors">Ya, Hapus</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* MODAL 3: LINK SOAL                                        */}
+          {/* ========================================================= */}
+          {modalLinkSoal.isOpen && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+                <h3 className="text-lg font-black text-slate-800 mb-2">Upload Tautan Soal</h3>
+                <p className="text-xs text-slate-500 mb-4">Tempelkan tautan Google Drive / Docs yang berisi naskah soal ujian ini.</p>
+                <input type="text" placeholder="https://drive.google.com/..." value={modalLinkSoal.url} onChange={(e) => setModalLinkSoal({...modalLinkSoal, url: e.target.value})} className="w-full p-3 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-slate-700 mb-6 text-sm"/>
+                <div className="flex gap-3">
+                  <button onClick={() => setModalLinkSoal({isOpen: false, folderId: "", url: ""})} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm transition-colors">Batal</button>
+                  <button onClick={handleSimpanLinkSoal} className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm transition-colors">Simpan Tautan</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* MODAL 4: ARSIP TAHUNAN                                    */}
+          {/* ========================================================= */}
+          {showArchiveAllModal && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><Archive size={24} className="text-blue-600"/> Backup Excel Tahunan</h3>
+                  <button onClick={() => setShowArchiveAllModal(false)} className="text-slate-400 hover:text-slate-700"><XCircle size={24} weight="fill"/></button>
+                </div>
+                <p className="text-sm font-medium text-slate-600 mb-6 leading-relaxed">Pilih tahun ajaran untuk diunduh sebagai <span className="font-bold text-slate-800">Master Data Excel</span>.</p>
+                <div className="mb-6 space-y-2">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Pilih Tahun Ajaran</label>
+                  <select value={selectedArchiveYear} onChange={(e) => setSelectedArchiveYear(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
+                    {availableYears.map(year => <option key={year} value={year}>{year}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={handleArchiveAndClearAll} className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-sm transition-all shadow-lg flex items-center justify-center gap-2">
+                    <DownloadSimple size={18} weight="bold"/> Download Backup Excel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
         </div>
       </div>
@@ -388,9 +620,7 @@ export default function ArsipUjianPage() {
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={() => setActiveView("folder_list")} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-all cursor-pointer active:scale-90">
-              <ArrowLeft size={20} weight="bold" className="text-slate-700" />
-            </button>
+            <button onClick={() => setActiveView("folder_list")} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-all cursor-pointer active:scale-90"><ArrowLeft size={20} weight="bold" className="text-slate-700" /></button>
             <div>
               <div className="flex items-center gap-2 mb-0.5">
                 <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Folder Arsip</p>
@@ -403,23 +633,15 @@ export default function ArsipUjianPage() {
           
           <div className="flex gap-3">
             {selectedFolder?.linkSoal ? (
-              <a href={selectedFolder.linkSoal} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer active:scale-95">
-                <ArrowSquareOut size={18} weight="bold" /> Buka Soal
-              </a>
+              <a href={selectedFolder.linkSoal} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer active:scale-95"><ArrowSquareOut size={18} weight="bold" /> Tampilkan Soal</a>
             ) : (
-              <button onClick={() => setModalLinkSoal({isOpen: true, folderId: selectedFolder.id, url: ""})} className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer active:scale-95">
-                <LinkIcon size={18} weight="bold" /> Upload Soal
-              </button>
+              <button onClick={() => setModalLinkSoal({isOpen: true, folderId: selectedFolder.id, url: ""})} className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer active:scale-95"><LinkIcon size={18} weight="bold" /> Tautkan Soal</button>
             )}
-            <button onClick={() => setShowEditKunci(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer active:scale-95">
-              <ListChecks size={18} weight="bold" /> Kunci CBT
-            </button>
-            <button onClick={() => setShowAnalisis(true)} className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-bold text-xs transition-all border border-blue-200 cursor-pointer active:scale-95">
-              <ChartBar size={18} weight="fill" /> Analisis Evaluasi
-            </button>
-            <button onClick={() => exportSingleFolder(selectedFolder.nama)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-emerald-500/20 cursor-pointer active:scale-95">
-              <FileXls size={18} weight="fill" /> Export Excel
-            </button>
+
+            <Link href={`/guru/ujian/buat?reprint=${selectedFolder?.id}`} className="flex items-center gap-2 px-4 py-2.5 bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer active:scale-95"><FilePdf size={18} weight="bold" /> Cetak LJK Ulang</Link>
+            <button onClick={() => setShowEditKunci(true)} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs transition-all shadow-sm cursor-pointer active:scale-95"><ListChecks size={18} weight="bold" /> Kunci Jawaban</button>
+            <button onClick={() => setShowAnalisis(true)} className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-bold text-xs transition-all border border-blue-200 cursor-pointer active:scale-95"><ChartBar size={18} weight="fill" /> Analisis Evaluasi</button>
+            <button onClick={() => exportSingleFolder(selectedFolder.nama)} className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-emerald-500/20 cursor-pointer active:scale-95"><FileXls size={18} weight="fill" /> Export Excel</button>
           </div>
         </div>
       </div>
@@ -430,11 +652,7 @@ export default function ArsipUjianPage() {
             <h2 className="font-black text-slate-800 text-sm uppercase tracking-widest">Daftar Hasil CBT/LJK Siswa</h2>
             <div className="flex items-center gap-4">
               <span className="text-xs font-bold text-slate-500">Total: {studentsData.length} Peserta</span>
-              <button 
-                onClick={handleSimpanRemedial} 
-                disabled={isSavingRemedial}
-                className="flex items-center gap-2 px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95 disabled:opacity-70 disabled:cursor-wait"
-              >
+              <button onClick={handleSimpanRemedial} disabled={isSavingRemedial} className="flex items-center gap-2 px-3 py-1.5 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer active:scale-95 disabled:opacity-70 disabled:cursor-wait">
                 {isSavingRemedial ? <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div> : <FloppyDisk size={16} weight="bold" />} Simpan Penilaian
               </button>
             </div>
@@ -474,31 +692,18 @@ export default function ArsipUjianPage() {
                     <td className="p-4 text-center">
                       <span className={`text-lg font-black ${siswa.nilai >= 75 ? 'text-emerald-600' : 'text-red-600'}`}>{siswa.nilai}</span>
                     </td>
-                    
                     <td className="p-4 text-center bg-orange-50/20 border-l border-orange-50">
                       {siswa.nilai < 75 ? (
-                        <input 
-                          type="number" min="0" max="100" 
-                          value={siswa.remedialScore} onChange={(e) => handleRemedialChange(siswa.id, e.target.value)} placeholder="-"
-                          className="w-16 p-1.5 border border-slate-300 rounded-lg text-center text-sm font-bold text-slate-700 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all bg-white"
-                        />
-                      ) : (
-                        <span className="text-slate-300 font-black">-</span>
-                      )}
+                        <input type="number" min="0" max="100" value={siswa.remedialScore} onChange={(e) => handleRemedialChange(siswa.id, e.target.value)} placeholder="-" className="w-16 p-1.5 border border-slate-300 rounded-lg text-center text-sm font-bold text-slate-700 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-all bg-white"/>
+                      ) : (<span className="text-slate-300 font-black">-</span>)}
                     </td>
-
                     <td className="p-4 text-center bg-purple-50/20 border-x border-purple-50">
                       <span className="text-base font-black text-purple-700">{siswa.nilaiEsai !== "" ? siswa.nilaiEsai : "-"}</span>
                     </td>
-
                     <td className="p-4 pr-6 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => setModalEsai({isOpen: true, student: siswa, scoreInput: siswa.nilaiEsai})} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-purple-400 hover:text-purple-600 rounded-lg text-xs font-bold text-slate-600 transition-all shadow-sm cursor-pointer active:scale-95">
-                          <NotePencil size={16} weight="bold" /> Esai
-                        </button>
-                        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-600 rounded-lg text-xs font-bold text-slate-600 transition-all shadow-sm cursor-pointer active:scale-95">
-                          <Eye size={16} weight="bold" /> Detail CBT
-                        </button>
+                        <button onClick={() => setModalEsai({isOpen: true, student: siswa, scoreInput: siswa.nilaiEsai})} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-purple-400 hover:text-purple-600 rounded-lg text-xs font-bold text-slate-600 transition-all shadow-sm cursor-pointer active:scale-95"><NotePencil size={16} weight="bold" /> Esai</button>
+                        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:border-blue-400 hover:text-blue-600 rounded-lg text-xs font-bold text-slate-600 transition-all shadow-sm cursor-pointer active:scale-95"><Eye size={16} weight="bold" /> Detail CBT</button>
                       </div>
                     </td>
                   </tr>
@@ -509,8 +714,163 @@ export default function ArsipUjianPage() {
         </div>
       </div>
 
-      {/* SISA KODE MODAL ESAI & PDF ANALISIS (Sama seperti milik Anda, tidak perlu diubah) */}
-      {/* ... (Modal Esai & Laporan PDF Evaluasi) ... */}
+      {/* ========================================================= */}
+      {/* MODAL 5: INPUT NILAI ESAI                                 */}
+      {/* ========================================================= */}
+      {modalEsai.isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 className="text-lg font-black text-slate-800 mb-2">Input Nilai Esai</h3>
+            <p className="text-xs text-slate-500 mb-4">Masukkan nilai komponen esai untuk <span className="font-bold text-slate-700">{modalEsai.student?.nama}</span>.</p>
+            <input type="number" min="0" max="100" placeholder="0 - 100" value={modalEsai.scoreInput} onChange={(e) => setModalEsai({...modalEsai, scoreInput: e.target.value})} className="w-full p-3 border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 font-black text-purple-700 text-xl text-center mb-6"/>
+            <div className="flex gap-3">
+              <button onClick={() => setModalEsai({isOpen: false, student: null, scoreInput: ""})} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm transition-colors">Batal</button>
+              <button onClick={handleSimpanEsai} className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-sm transition-colors">Simpan Nilai</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 6: EDIT KUNCI JAWABAN & KOREKSI OTOMATIS            */}
+      {/* ========================================================= */}
+      {showEditKunci && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><ListChecks size={24} className="text-blue-600"/> Edit Kunci Jawaban</h3>
+              <button onClick={() => setShowEditKunci(false)} className="text-slate-400 hover:text-slate-700"><XCircle size={24} weight="fill"/></button>
+            </div>
+            
+            <p className="text-xs text-slate-500 mb-4">Ubah kunci jawaban di bawah ini. Sistem akan otomatis melakukan regrading (koreksi ulang) nilai siswa yang sudah masuk.</p>
+
+            <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-4 gap-3 mb-4">
+              {kunciJawaban.map((k, i) => (
+                <div key={i} className="flex flex-col items-center p-2 border border-slate-200 rounded-lg bg-slate-50 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                  <span className="text-[10px] font-bold text-slate-400 mb-1">No {i+1}</span>
+                  <select value={k} onChange={(e) => { const newKunci = [...kunciJawaban]; newKunci[i] = e.target.value; setKunciJawaban(newKunci); }} className="w-full text-center bg-transparent font-black text-slate-800 outline-none cursor-pointer appearance-none text-base">
+                    <option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option><option value="B (Benar)">B (Benar)</option><option value="S (Salah)">S (Salah)</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setShowEditKunci(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-sm transition-colors">Batal</button>
+              <button onClick={async () => {
+                  setIsSavingKunci(true);
+                  try {
+                    const payload = kunciJawaban.map((jawaban, index) => ({ soalId: soalData[index].id, labelBenar: jawaban }));
+                    const res = await fetch('/api/arsip', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ujianId: selectedFolder.id, kunciBaru: payload, orderedKunci: kunciJawaban }) });
+                    if (res.ok) {
+                      alert("Kunci jawaban berhasil diperbarui!\nNilai seluruh siswa telah dikoreksi ulang secara otomatis.");
+                      setShowEditKunci(false); handleBukaFolder(selectedFolder);
+                    } else { alert("Gagal memperbarui kunci jawaban."); }
+                  } catch (error) { alert("Terjadi kesalahan jaringan."); }
+                  setIsSavingKunci(false);
+                }} disabled={isSavingKunci} className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition-colors disabled:opacity-70 flex justify-center items-center"
+              >
+                {isSavingKunci ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Simpan Kunci"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL 7: LAPORAN ANALISIS EVALUASI (EXPORT TO PDF)        */}
+      {/* ========================================================= */}
+      {showAnalisis && analysisData && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col h-[90vh]">
+            <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl shrink-0">
+              <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><ChartBar size={24} className="text-blue-600" weight="fill" /> Laporan Analisis Evaluasi Belajar</h3>
+              <div className="flex gap-2">
+                <button onClick={downloadAnalisisPDF} disabled={isExportingPDF} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
+                  {isExportingPDF ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <FilePdf size={16} weight="fill"/>} Cetak Laporan PDF
+                </button>
+                <button onClick={() => setShowAnalisis(false)} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"><XCircle size={24} weight="fill"/></button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-8 bg-slate-100/50">
+              <div ref={analisisRef} className="bg-white p-10 border border-slate-200" style={{ width: '210mm', minHeight: '297mm', margin: '0 auto' }}>
+                <div className="text-center border-b-2 border-black pb-4 mb-6">
+                  <h1 className="text-xl font-black uppercase tracking-widest text-slate-800">Laporan Analisis Hasil Ujian</h1>
+                  <p className="text-sm font-bold text-slate-500 mt-1">Sistem Ujian OMR & CBT Terpadu TarbiyahTech</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 mb-8 text-sm">
+                  <div>
+                    <table className="w-full">
+                      <tbody>
+                        <tr><td className="font-bold text-slate-500 py-1 w-32">Nama Ujian</td><td className="font-black text-slate-800 uppercase">: {selectedFolder?.nama}</td></tr>
+                        <tr><td className="font-bold text-slate-500 py-1">Mata Pelajaran</td><td className="font-black text-slate-800 uppercase">: {selectedFolder?.nama.split(' ').slice(0,2).join(' ')}</td></tr>
+                        <tr><td className="font-bold text-slate-500 py-1">Pengajar</td><td className="font-black text-slate-800 uppercase">: {selectedFolder?.pengajar}</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div>
+                    <table className="w-full">
+                      <tbody>
+                        <tr><td className="font-bold text-slate-500 py-1 w-32">Kelas</td><td className="font-black text-slate-800 uppercase">: {selectedFolder?.kelas}</td></tr>
+                        <tr><td className="font-bold text-slate-500 py-1">Tanggal Ujian</td><td className="font-black text-slate-800 uppercase">: {selectedFolder?.tanggal}</td></tr>
+                        <tr><td className="font-bold text-slate-500 py-1">Jumlah Peserta</td><td className="font-black text-slate-800 uppercase">: {analysisData.totalSiswa} Siswa</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">A. Statistik Kelas</h2>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-center"><p className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-1">Rata-Rata Kelas</p><p className="text-3xl font-black text-blue-700">{analysisData.average}</p></div>
+                    <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-center"><p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Nilai Tertinggi</p><p className="text-3xl font-black text-emerald-700">{analysisData.highest}</p></div>
+                    <div className="bg-red-50 border border-red-100 p-4 rounded-xl text-center"><p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Nilai Terendah</p><p className="text-3xl font-black text-red-700">{analysisData.lowest}</p></div>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">B. Analisis Butir Soal</h2>
+                  <table className="w-full text-xs text-left border-collapse border border-slate-300">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-600 font-bold">
+                        <th className="p-2 border border-slate-300 text-center w-10">No</th><th className="p-2 border border-slate-300 text-center w-12">Kunci</th><th className="p-2 border border-slate-300 text-center">Tingkat Kesukaran</th><th className="p-2 border border-slate-300 text-center w-24">Daya Pembeda</th><th className="p-2 border border-slate-300 text-center">Distribusi Jawaban (A-E)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analysisData.itemAnalysis.map((item: any) => (
+                        <tr key={item.no} className="border-b border-slate-200">
+                          <td className="p-2 border border-slate-300 text-center font-bold text-slate-500">{item.no}</td>
+                          <td className="p-2 border border-slate-300 text-center font-black text-slate-800">{item.kunci}</td>
+                          <td className={`p-2 border border-slate-300 font-bold ${item.warnaKesukaran}`}>{item.tingkatKesukaran}</td>
+                          <td className="p-2 border border-slate-300 text-center font-bold text-slate-600">{item.dayaPembeda}</td>
+                          <td className="p-2 border border-slate-300 text-center font-medium text-[10px] text-slate-500">A:{item.distribusi.A} | B:{item.distribusi.B} | C:{item.distribusi.C} | D:{item.distribusi.D} | E:{item.distribusi.E}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div>
+                  <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">C. Tindak Lanjut (Remedial)</h2>
+                  <p className="text-xs font-medium text-slate-600 mb-2">Siswa di bawah KKM (&lt; 75) yang membutuhkan perbaikan:</p>
+                  {analysisData.remedialStudentsList.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {analysisData.remedialStudentsList.map((nama: string, idx: number) => (
+                        <span key={idx} className="bg-orange-50 border border-orange-200 text-orange-700 px-3 py-1.5 rounded-lg text-xs font-bold">{nama}</span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-xs font-bold flex items-center gap-2"><CheckCircle size={16} weight="fill" /> Seluruh siswa tuntas KKM. Tidak ada remedial.</div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
