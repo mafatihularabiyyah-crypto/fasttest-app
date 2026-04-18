@@ -1,25 +1,37 @@
 import { NextResponse } from "next/server";
-// Mundur 4 langkah karena foldernya sudah masuk ke dalam /api/
 import { createClient } from "@/utils/supabase/server"; 
+
+// 🚨 MANTRA ANTI-CACHE (SANGAT PENTING!) 🚨
+// Ini memaksa Next.js untuk selalu mengambil data baru, bukan data memori lama
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    console.log("=== API PROFILE DIPANGGIL ===");
+    
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Jika belum login, tolak akses
     if (!user) {
+      console.log("Status: User belum login");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1. Ambil profil dari tabel 'Guru' di Supabase
+    console.log("1. Email yang dipakai Login sekarang:", user.email);
+
+    // 1. Ambil profil dari tabel 'Guru'
     const { data: guru, error: errorGuru } = await supabase
       .from("Guru")
       .select("nama, sekolah_id")
       .eq("email", user.email)
       .single();
 
-    // Jika data guru belum ada di tabel, kirim error 404
+    if (errorGuru) {
+       console.log("2. Error Supabase saat mencari Guru:", errorGuru);
+    }
+    
+    console.log("3. Hasil pencarian data Guru:", guru);
+
     if (errorGuru || !guru) {
       return NextResponse.json({ error: "Guru tidak ditemukan di tabel" }, { status: 404 });
     }
@@ -31,13 +43,12 @@ export async function GET() {
       .eq("id", guru.sekolah_id)
       .single();
 
-    // 3. Hitung jumlah santri berdasarkan sekolah
+    // 3. Hitung jumlah santri
     const { count } = await supabase
       .from("Santri")
       .select("*", { count: 'exact', head: true })
       .eq("sekolah_id", guru.sekolah_id);
 
-    // 4. Kirim semua data ke Dashboard
     return NextResponse.json({
       nama: guru.nama,
       sekolahNama: sekolah?.nama || "TarbiyahTech",
@@ -45,6 +56,7 @@ export async function GET() {
     }, { status: 200 });
 
   } catch (error) {
+    console.error("Fatal Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -1,7 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
-// Memastikan data selalu segar dan tidak nyangkut di cache Next.js
 export const dynamic = "force-dynamic";
 
 // ==========================================
@@ -12,16 +11,22 @@ export async function GET() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Pastikan user dan email-nya benar-benar ada
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    // Cari tahu guru ini mengajar di sekolah mana
-    const { data: guru } = await supabase.from("Guru").select("sekolah_id").eq("email", user.email).single();
+    // Menggunakan user.email || "" agar TypeScript yakin ini adalah string
+    const { data: guru } = await supabase
+      .from("Guru")
+      .select("sekolah_id")
+      .ilike("email", user.email || "")
+      .single();
 
     if (!guru || !guru.sekolah_id) {
       return NextResponse.json([], { status: 200 }); 
     }
 
-    // Ambil santri sesuai sekolah guru tersebut
     const { data: santri, error } = await supabase
       .from("Santri")
       .select("*")
@@ -41,20 +46,38 @@ export async function GET() {
 // 2. POST: MENAMBAH SANTRI BARU
 // ==========================================
 export async function POST(req: Request) {
+  console.log("=== MENCOBA TAMBAH SANTRI BARU ===");
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    
+    // Pastikan user dan email-nya benar-benar ada
+    if (!user || !user.email) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    
+    console.log("1. Email User:", user.email);
 
-    const { data: guru } = await supabase.from("Guru").select("sekolah_id").eq("email", user.email).single();
+    // Menggunakan user.email || "" agar TypeScript yakin ini adalah string
+    const { data: guru, error: guruError } = await supabase
+      .from("Guru")
+      .select("sekolah_id")
+      .ilike("email", user.email || "")
+      .single();
+
+    console.log("2. Data Guru:", guru, "Error:", guruError?.message);
+    
     if (!guru) return NextResponse.json({ error: "Guru tidak ditemukan" }, { status: 404 });
 
     const body = await req.json();
+    
+    // Buatkan ID otomatis
+    const newId = body.id || `SNT-${Date.now()}`;
 
-    // Masukkan data ke Supabase
-    const { data, error } = await supabase
+    const { data, error: insertError } = await supabase
       .from("Santri")
       .insert([{
+        id: newId,
         sekolah_id: guru.sekolah_id,
         nis: body.nis,
         nama: body.nama,
@@ -64,7 +87,12 @@ export async function POST(req: Request) {
       }])
       .select();
 
-    if (error) throw error;
+    if (insertError) {
+      console.log("3. Gagal Insert ke DB:", insertError.message);
+      throw insertError;
+    }
+
+    console.log("4. Sukses Simpan Santri!");
     return NextResponse.json({ message: "Berhasil ditambah", data }, { status: 201 });
 
   } catch (error) {
@@ -84,7 +112,6 @@ export async function PUT(req: Request) {
 
     const body = await req.json();
 
-    // Update data di Supabase berdasarkan ID santri
     const { data, error } = await supabase
       .from("Santri")
       .update({
@@ -115,7 +142,6 @@ export async function DELETE(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Tangkap ID dari URL (misal: /api/santri?id=123)
     const id = req.nextUrl.searchParams.get("id");
     if (!id) return NextResponse.json({ error: "ID tidak diberikan" }, { status: 400 });
 
