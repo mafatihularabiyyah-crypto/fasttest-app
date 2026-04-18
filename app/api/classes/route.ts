@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
+export const runtime = 'edge';
 // Memastikan data selalu segar (tidak di-cache)
 export const dynamic = "force-dynamic";
 

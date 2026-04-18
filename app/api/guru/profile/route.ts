@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server"; 
 
-// 🚨 MANTRA ANTI-CACHE (SANGAT PENTING!) 🚨
+export const runtime = 'edge';
+// 🚨 ANTI-CACHE (SANGAT PENTING!) 🚨
 // Ini memaksa Next.js untuk selalu mengambil data baru, bukan data memori lama
 export const dynamic = "force-dynamic";
 

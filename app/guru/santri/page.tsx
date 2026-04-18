@@ -20,7 +20,6 @@ interface Santri {
 }
 
 export default function KelolaSantri() {
-  // STATE DATA ASLI DARI DATABASE
   const [santriList, setSantriList] = useState<Santri[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -29,7 +28,6 @@ export default function KelolaSantri() {
   const [filterStatus, setFilterStatus] = useState("Semua");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
-  // State Modal
   const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view' | null>(null);
   const [currentSantri, setCurrentSantri] = useState<Partial<Santri>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -45,18 +43,15 @@ export default function KelolaSantri() {
       const res = await fetch('/api/santri');
       const data = await res.json();
       
-      // JARING PENGAMAN: Cek apakah data yang diterima adalah Array. 
-      // Jika bukan (misal objek error), paksa menjadi array kosong [].
       if (Array.isArray(data)) {
         setSantriList(data);
       } else {
         console.error("Respon API bermasalah:", data);
         setSantriList([]); 
       }
-      
     } catch (error) {
       console.error("Gagal menarik data:", error);
-      setSantriList([]); // Pastikan tetap jadi array kosong jika fetch gagal
+      setSantriList([]); 
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +92,7 @@ export default function KelolaSantri() {
   };
 
   const handleBulkNaikKelas = () => {
-    if (!confirm(`Yakin ingin menaikkan kelas ${selectedIds.length} santri terpilih? (Catatan: Fitur bulk ini murni UI untuk demonstrasi)`)) return;
+    if (!confirm(`Yakin ingin menaikkan kelas ${selectedIds.length} santri terpilih? (Catatan: Fitur bulk ini masih murni UI, belum tersimpan ke DB)`)) return;
     setSantriList(prev => prev.map(s => {
       if (selectedIds.includes(s.id)) {
         const kelasBaru = prosesNaikKelas(s.kelas);
@@ -115,7 +110,7 @@ export default function KelolaSantri() {
   };
 
   // ==========================================
-  // FITUR EXCEL (IMPORT & EXPORT)
+  // FITUR EXCEL (EXPORT)
   // ==========================================
   const handleExportExcel = () => {
     const dataForExcel = filteredSantri.map((s, i) => ({
@@ -127,27 +122,51 @@ export default function KelolaSantri() {
     XLSX.writeFile(wb, `Data_Santri_TarbiyahTech_${new Date().getTime()}.xlsx`);
   };
 
-  const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ==========================================
+  // FITUR EXCEL (IMPORT) - SUDAH DIPERBAIKI!
+  // ==========================================
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setIsLoading(true); // Tampilkan loading saat proses import
+
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       const bstr = evt.target?.result;
       const wb = XLSX.read(bstr, { type: 'binary' });
       const wsname = wb.SheetNames[0];
       const ws = wb.Sheets[wsname];
       const data = XLSX.utils.sheet_to_json(ws) as any[];
       
-      const newData = data.map((row: any) => ({
-        id: Date.now().toString() + Math.random().toString(),
-        nis: String(row.NIS || ""),
-        nama: row["Nama Lengkap"] || row.Nama || "Tanpa Nama",
-        gender: row["L/P"] || "L",
-        kelas: row.Kelas || "X",
-        status: "Aktif" as StatusSantri
-      }));
-      setSantriList([...santriList, ...newData]);
-      alert(`${newData.length} data santri berhasil diimpor! (Catatan: Simpan ke DB belum dikonfigurasi untuk bulk excel)`);
+      let sukses = 0;
+      let gagal = 0;
+
+      // Loop data excel dan simpan satu per satu ke Database
+      for (const row of data) {
+        const santriBaru = {
+          nis: String(row.NIS || ""),
+          nama: row["Nama Lengkap"] || row.Nama || "Tanpa Nama",
+          gender: row["L/P"] || "L",
+          kelas: row.Kelas || "X",
+          status: "Aktif" as StatusSantri
+        };
+
+        try {
+          const res = await fetch('/api/santri', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(santriBaru)
+          });
+          
+          if (res.ok) sukses++;
+          else gagal++;
+        } catch (err) {
+          gagal++;
+        }
+      }
+
+      alert(`Proses Import Selesai!\nData Berhasil: ${sukses}\nData Gagal: ${gagal}`);
+      await loadData(); // Tarik ulang data dari database agar layar ter-update
     };
     reader.readAsBinaryString(file);
     if (fileInputRef.current) fileInputRef.current.value = ''; 
@@ -188,15 +207,18 @@ export default function KelolaSantri() {
           alert("Data santri berhasil dihapus permanen.");
           await loadData(); // Tarik ulang data terbaru dari database
         } else {
-          alert("Gagal menghapus data.");
+          // Tangkap pesan error dari API jika ada
+          const errData = await res.json();
+          alert(`Gagal menghapus data: ${errData.error || 'Server Error'}`);
         }
       } catch (error) {
         console.error("Error deleting:", error);
+        alert("Terjadi kesalahan jaringan saat menghapus.");
       }
     }
   };
 
-  // Render utama (Kode UI persis seperti versi lama Anda)
+  // Render utama
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
       {/* 1. HEADER UTAMA */}
@@ -242,7 +264,6 @@ export default function KelolaSantri() {
               <Funnel size={18} className="text-slate-400" />
               <select value={filterKelas} onChange={(e) => setFilterKelas(e.target.value)} className="bg-transparent py-1.5 outline-none font-bold text-sm text-slate-600 w-full cursor-pointer">
                 <option value="Semua">Semua Kelas</option>
-                {/* Dynamically extract unique classes for filter */}
                 {Array.from(new Set(santriList.map(s => s.kelas))).sort().map(kelas => (
                    <option key={kelas} value={kelas}>{kelas}</option>
                 ))}
