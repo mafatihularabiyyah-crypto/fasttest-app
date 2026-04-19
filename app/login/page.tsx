@@ -24,13 +24,16 @@ export default function ElegantBlueLoginPage() {
   // Inisialisasi Supabase Client menggunakan file utility yang baru
   const supabase = createClient();
 
+  // ====================================================================
+  // LOGIKA LOGIN MULTI-ROLE (RBAC) YANG BARU
+  // ====================================================================
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMsg(""); // Bersihkan error sebelumnya
     
-    // Proses Login Asli ke Supabase
-    const { data, error } = await supabase.auth.signInWithPassword({
+    // 1. Cek Email & Password ke Supabase Auth
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: email,
       password: password,
     });
@@ -39,9 +42,26 @@ export default function ElegantBlueLoginPage() {
       // Jika gagal (email/password salah)
       setErrorMsg(error.message);
       setIsLoading(false);
-    } else {
-      // Jika berhasil login, langsung pindah ke dashboard
-      router.push("/guru");
+    } else if (authData.user) {
+      // 2. Jika password benar, cek "Role" di tabel profil Guru
+      const { data: profil, error: profilError } = await supabase
+        .from("Guru")
+        .select("role")
+        .eq("id", authData.user.id)
+        .single();
+
+      if (profilError || !profil) {
+        setErrorMsg("Profil tidak ditemukan di database.");
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. Sistem Pintu Cerdas (Pengalihan Berdasarkan Peran)
+      if (profil.role === 'admin') {
+        router.push("/admin/guru"); // Arahkan Admin Sekolah ke Dasbor Manajemen
+      } else {
+        router.push("/guru/arsip"); // Arahkan Guru Mapel ke Dasbor Arsip & LJK
+      }
     }
   };
 
@@ -83,7 +103,6 @@ export default function ElegantBlueLoginPage() {
               </div>
             </div>
 
-            {/* ERROR CSS CONFLICT DIPERBAIKI DI BARIS INI (text-white dihapus) */}
             <p className="text-xl lg:text-2xl font-medium leading-relaxed max-w-lg mb-10 text-slate-300">
               Selamat datang kembali! Akses semua alat evaluasi modern Anda: LJK Generator, Auto-Scanner, CBT, dan Analisis Nilai.
             </p>
