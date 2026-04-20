@@ -21,24 +21,45 @@ export async function GET(req: Request) {
     
     if (!user) throw new Error("Akses ditolak: Sesi tidak ditemukan.");
 
+    console.log("\n=== 🕵️ DEBUG: MENGAMBIL DATA GURU ===");
+    console.log("1. ID Admin Login:", user.id);
+
     // Cari tahu ID Sekolah Admin ini
-    const { data: adminProfil } = await supabase
+    const { data: adminProfil, error: adminError } = await supabase
       .from("Guru")
-      .select("sekolah_id")
+      .select("sekolah_id, role")
       .eq("id", user.id)
       .single();
+
+    if (adminError) console.log("❌ ERROR Ambil Profil Admin:", adminError.message);
+    console.log("2. Profil Admin:", adminProfil);
+
+    // Jika Admin tidak punya sekolah_id, jangan paksa query, langsung kembalikan kosong
+    if (!adminProfil || !adminProfil.sekolah_id) {
+      console.log("⚠️ WARNING: Admin ini TIDAK PUNYA sekolah_id. Mengembalikan array kosong.");
+      console.log("======================================\n");
+      return NextResponse.json([], { status: 200 }); 
+    }
 
     // Ambil guru yang role-nya 'guru' dan satu sekolah dengan Admin
     const { data, error } = await supabaseAdmin
       .from('Guru')
       .select('*')
       .eq('role', 'guru')
-      .eq('sekolah_id', adminProfil?.sekolah_id) 
-      .order('created_at', { ascending: false });
+      .eq('sekolah_id', adminProfil.sekolah_id) 
+      .order('created_at', { ascending: true });
 
-    if (error) throw error;
-    return NextResponse.json(data, { status: 200 });
+    if (error) {
+      console.log("❌ ERROR Mengambil Tabel Guru:", error.message);
+      throw error;
+    }
+    
+    console.log(`3. ✅ Ditemukan ${data?.length || 0} guru untuk sekolah ${adminProfil.sekolah_id}`);
+    console.log("======================================\n");
+
+    return NextResponse.json(data || [], { status: 200 });
   } catch (error: any) {
+    console.log("❌ CATCH ERROR GET:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -52,6 +73,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { nama, email, password } = body;
 
+    console.log("\n=== 🚀 DEBUG: MEMBUAT AKUN GURU BARU ===");
+    console.log(`1. Target Email: ${email}`);
+
     // 1. Ambil data Admin yang sedang login
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Tidak ada sesi login aktif");
@@ -62,7 +86,11 @@ export async function POST(req: Request) {
       .eq("id", user.id)
       .single();
 
-    if (!adminProfil) throw new Error("Profil admin tidak ditemukan");
+    console.log("2. ID Sekolah Admin:", adminProfil?.sekolah_id);
+
+    if (!adminProfil || !adminProfil.sekolah_id) {
+      throw new Error("Gagal: Akun Admin Anda belum memiliki ID Sekolah di database!");
+    }
 
     // 2. Buat Akun Auth menggunakan ID Sekolah si Admin
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -72,10 +100,13 @@ export async function POST(req: Request) {
       email_confirm: true
     });
 
-    if (authError) throw authError;
+    if (authError) {
+      console.log("❌ ERROR Auth Create:", authError.message);
+      throw authError;
+    }
     
-    // Perbaikan Error TS: Pastikan user benar-benar tercipta
     if (!authData.user) throw new Error("Sistem gagal menghasilkan ID User");
+    console.log("3. ✅ Akun Auth berhasil dibuat dengan UID:", authData.user.id);
 
     // 3. Simpan profil guru ke database
     const { error: dbError } = await supabaseAdmin
@@ -88,10 +119,20 @@ export async function POST(req: Request) {
         sekolah_id: adminProfil.sekolah_id // Otomatis disamakan dengan Admin
       });
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      console.log("❌ ERROR Tabel Guru Insert:", dbError.message);
+      console.log("⚠️ Melakukan Auto-Rollback (Menghapus akun Auth)...");
+      // Hapus akun dari Auth jika gagal simpan di database agar tidak nyangkut
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      throw dbError;
+    }
+
+    console.log("4. ✅ Data profil Guru berhasil disimpan ke database!");
+    console.log("========================================\n");
 
     return NextResponse.json({ success: true, message: "Akun guru berhasil dibuat!" }, { status: 201 });
   } catch (error: any) {
+    console.log("❌ CATCH ERROR POST:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
@@ -116,4 +157,4 @@ export async function DELETE(req: Request) {
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-} 
+}
