@@ -7,7 +7,6 @@ import {
   Trash, 
   MagnifyingGlass, 
   UsersThree, 
-  CaretLeft, 
   FolderOpen,
   EnvelopeSimple,
   LockKey
@@ -74,24 +73,11 @@ export default function ManajemenGuruPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans p-4 sm:p-8">
+    <div className="min-h-screen bg-slate-50 font-sans p-6 md:p-8">
       <div className="max-w-6xl mx-auto">
-        
-        {/* TOMBOL KEMBALI & TAB NAVIGASI */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 mb-8 pb-4">
-          <Link href="/admin" className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold rounded-xl transition-all text-sm shadow-sm">
-            <CaretLeft size={16} weight="bold" /> Dashboard Utama
-          </Link>
-          
-          <div className="flex flex-wrap gap-2">
-            <Link href="/admin/guru" className="px-5 py-2.5 rounded-xl font-black text-blue-700 bg-blue-100/50 shadow-sm transition-colors">Manajemen Guru</Link>
-            <Link href="/admin/santri" className="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">Data Santri Aktif</Link>
-            <Link href="/admin/template" className="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">Master Template LJK</Link>
-          </div>
-        </div>
 
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        {/* HEADER SECTION (TANPA TAB NAVIGASI) */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 pt-4">
           <div>
             <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
               <UsersThree size={36} className="text-blue-600" weight="fill" /> Manajemen Akun Guru
@@ -105,7 +91,7 @@ export default function ManajemenGuruPage() {
           </div>
         </div>
 
-        {/* TABEL DATA */}
+        {/* TABEL DATA PENCARIAN & STATISTIK */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
             <div className="flex items-center gap-2 text-slate-700 font-black text-sm">
@@ -113,7 +99,7 @@ export default function ManajemenGuruPage() {
             </div>
             <div className="relative w-full sm:w-80">
               <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Cari nama atau email..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+              <input type="text" placeholder="Cari nama atau email..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm" />
             </div>
           </div>
 
@@ -146,13 +132,13 @@ export default function ManajemenGuruPage() {
                     </td>
                     <td className="p-4 pr-6 text-right space-x-2">
                       {/* TOMBOL LIHAT ARSIP GURU */}
-<Link 
-  href={`/admin/guru/${guru.id}`}
-  className="p-2 text-blue-500 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors inline-flex items-center gap-1 text-xs font-bold"
-  title="Intip Arsip Ujian Guru Ini"
->
-  <FolderOpen size={18} weight="bold" /> Arsip
-</Link>
+                      <Link 
+                        href={`/admin/guru/${guru.id}`}
+                        className="p-2 text-blue-500 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors inline-flex items-center gap-1 text-xs font-bold"
+                        title="Intip Arsip Ujian Guru Ini"
+                      >
+                        <FolderOpen size={18} weight="bold" /> Arsip
+                      </Link>
                       
                       <button 
                         onClick={() => handleHapusGuru(guru.id, guru.nama)} 

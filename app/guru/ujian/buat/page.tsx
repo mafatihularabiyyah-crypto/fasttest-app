@@ -223,7 +223,7 @@ export default function LJKGeneratorFinal() {
     return (
       <div className="min-h-screen bg-[#f8fafc] font-sans flex flex-col items-center relative overflow-x-hidden pt-24 px-6 pb-24">
         <div className="absolute top-0 left-0 w-full h-[45vh] bg-[#1d4ed8] rounded-b-[2.5rem] pointer-events-none"></div>
-        <Link href="/guru/arsip" className="absolute top-8 left-8 p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-all cursor-pointer">
+        <Link href="/guru" className="absolute top-8 left-8 p-3 bg-white/20 hover:bg-white/30 backdrop-blur-md rounded-full text-white transition-all cursor-pointer">
           <ArrowLeft size={24} weight="bold" />
         </Link>
 

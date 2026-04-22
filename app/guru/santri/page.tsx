@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { 
-  ArrowLeft, MagnifyingGlass, Funnel, Plus, DownloadSimple, UploadSimple, 
-  PencilSimple, Trash, Eye, Student, Users, CaretDoubleUp, Prohibit, X, CheckCircle,
-  GenderMale, GenderFemale
+  ArrowLeft, MagnifyingGlass, Funnel, 
+  Eye, Student, Users, X, GenderMale, GenderFemale
 } from "@phosphor-icons/react";
-import * as XLSX from "xlsx";
 
-// 🌟 PERBAIKAN 1: Tambah status 'Diarsipkan'
 type StatusSantri = 'Aktif' | 'Lulus' | 'Pindah' | 'Drop Out' | 'Diarsipkan';
 
 interface Santri {
@@ -26,20 +23,18 @@ const formatNama = (nama: string) => {
   return nama.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
-export default function KelolaSantri() {
+export default function DatabaseSantriGuru() {
   const [santriList, setSantriList] = useState<Santri[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Fitur Filter & Pencarian
   const [search, setSearch] = useState("");
   const [filterKelas, setFilterKelas] = useState("Semua");
   const [filterStatus, setFilterStatus] = useState("Aktif");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   
-  const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view' | null>(null);
+  // Fitur Modal (Hanya Lihat)
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [currentSantri, setCurrentSantri] = useState<Partial<Santri>>({});
-  const [isSaving, setIsSaving] = useState(false);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -71,243 +66,27 @@ export default function KelolaSantri() {
     })
     .sort((a, b) => a.nama.localeCompare(b.nama)); 
 
-  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.checked) setSelectedIds(filteredSantri.map(s => s.id));
-    else setSelectedIds([]);
-  };
-
-  const handleSelectOne = (id: string) => {
-    if (selectedIds.includes(id)) setSelectedIds(selectedIds.filter(i => i !== id));
-    else setSelectedIds([...selectedIds, id]);
-  };
-
-  // 🌟 FUNGSI BARU: Mesin Naik Kelas Anti-Gagal (Support Spasi atau Tanpa Spasi)
-  const prosesNaikKelas = (kelasSekarang: string) => {
-    let k = kelasSekarang.toUpperCase().trim();
-
-    // 1. DETEKSI FORMAT ANGKA BIASA (Contoh: "5B", "10 IPA", "7-A")
-    // Ini akan memisahkan angka di depan dengan teks apa pun di belakangnya
-    const matchAngka = k.match(/^(\d+)(.*)/);
-    
-    if (matchAngka) {
-      let angka = parseInt(matchAngka[1]);
-      let sisaTeks = matchAngka[2]; // Menyimpan "B", " IPA", atau "-A"
-
-      // Aturan tamat/lulus
-      if (angka === 6 || angka === 9 || angka === 12) return "LULUS";
-      
-      // Aturan naik kelas (Angka ditambah 1, lalu teksnya ditempel lagi)
-      if (angka >= 1 && angka <= 11) {
-        return (angka + 1) + sisaTeks;
-      }
-    }
-
-    // 2. DETEKSI FORMAT ROMAWI (Contoh: "X IPA 1", "VII B")
-    if (k.startsWith("XII")) return "LULUS";
-    if (k.startsWith("XI")) return k.replace(/^XI/, "XII");
-    if (k.startsWith("X")) return k.replace(/^X/, "XI");
-
-    if (k.startsWith("IX")) return "LULUS";
-    if (k.startsWith("VIII")) return k.replace(/^VIII/, "IX");
-    if (k.startsWith("VII")) return k.replace(/^VII/, "VIII");
-
-    // Jika formatnya di luar nalar, kembalikan teks aslinya
-    return kelasSekarang; 
-  };
-
-  // 🌟 PERBAIKAN 2: Logika Arsip saat Naik Kelas
-  const handleBulkNaikKelas = async () => {
-    if (!confirm(`Yakin ingin menaikkan kelas ${selectedIds.length} santri terpilih?\n\nSistem akan mengarsipkan data kelas lama (diubah menjadi "Diarsipkan") dan membuatkan data baru untuk kelas yang lebih tinggi agar riwayat tidak hilang.`)) return;
-    
-    setIsLoading(true);
-    let sukses = 0;
-
-    for (const id of selectedIds) {
-      const santriLama = santriList.find(s => s.id === id);
-      if (!santriLama) continue;
-
-      const kelasBaru = prosesNaikKelas(santriLama.kelas);
-
-      try {
-        if (kelasBaru === "LULUS") {
-          // Jika sudah kelas 12, baru statusnya jadi Lulus
-          await fetch('/api/santri', { 
-            method: 'PUT', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({...santriLama, status: 'Lulus'}) 
-          });
-        } else {
-          // 1. Arsipkan data lama (Ubah status jadi Diarsipkan)
-          await fetch('/api/santri', { 
-            method: 'PUT', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({...santriLama, status: 'Diarsipkan'}) 
-          });
-
-          // 2. Buat data BARU untuk kelas barunya
-          const newId = `SNT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-          await fetch('/api/santri', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ...santriLama,
-              id: newId,
-              kelas: kelasBaru,
-              status: 'Aktif' 
-            }) 
-          });
-        }
-        sukses++;
-      } catch (err) {
-        console.error("Gagal memproses ID:", id);
-      }
-    }
-
-    alert(`Proses Naik Kelas Selesai! ${sukses} data berhasil diproses.`);
-    setSelectedIds([]);
-    await loadData(); 
-  };
-
-  const handleBulkKecualikan = async (statusBaru: StatusSantri) => {
-    if (!confirm(`Ubah status ${selectedIds.length} santri menjadi ${statusBaru}?`)) return;
-    setIsLoading(true);
-    
-    for (const id of selectedIds) {
-      const s = santriList.find(x => x.id === id);
-      if (s) {
-        await fetch('/api/santri', { 
-          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({...s, status: statusBaru}) 
-        });
-      }
-    }
-    
-    setSelectedIds([]);
-    await loadData();
-  };
-
-  const handleExportExcel = () => {
-    const dataForExcel = filteredSantri.map((s, i) => ({
-      "No": i + 1, "NIS": s.nis, "Nama Lengkap": s.nama, "L/P": s.gender, "Kelas": s.kelas, "Status": s.status
-    }));
-    const ws = XLSX.utils.json_to_sheet(dataForExcel);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Data_Santri");
-    XLSX.writeFile(wb, `Data_Santri_TarbiyahTech_${new Date().getTime()}.xlsx`);
-  };
-
-  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsLoading(true);
-
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const data = XLSX.utils.sheet_to_json(ws) as any[];
-      
-      let sukses = 0;
-      let gagal = 0;
-
-      for (const row of data) {
-        const santriBaru = {
-          nis: String(row.NIS || ""),
-          nama: row["Nama Lengkap"] || row.Nama || "Tanpa Nama",
-          gender: row["L/P"] || "L",
-          kelas: row.Kelas || "X",
-          status: "Aktif" as StatusSantri
-        };
-
-        try {
-          const res = await fetch('/api/santri', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(santriBaru) });
-          if (res.ok) sukses++; else gagal++;
-        } catch (err) { gagal++; }
-      }
-
-      alert(`Proses Import Selesai!\nData Berhasil: ${sukses}\nData Gagal: ${gagal}`);
-      await loadData(); 
-    };
-    reader.readAsBinaryString(file);
-    if (fileInputRef.current) fileInputRef.current.value = ''; 
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const method = modalMode === 'add' ? 'POST' : 'PUT';
-      const dataToSave = { ...currentSantri, nama: formatNama(currentSantri.nama || "") };
-      
-      const res = await fetch('/api/santri', {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataToSave)
-      });
-
-      if (res.ok) {
-        alert(`Data santri berhasil ${modalMode === 'add' ? 'ditambahkan' : 'diperbarui'}!`);
-        await loadData();
-        setModalMode(null);
-      } else {
-        alert("Gagal menyimpan data.");
-      }
-    } catch (error) {
-      console.error("Error saving:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (confirm("Hapus data santri ini permanen dari Database?")) {
-      try {
-        const res = await fetch(`/api/santri?id=${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          alert("Data santri berhasil dihapus.");
-          await loadData();
-        } else {
-          const errData = await res.json();
-          alert(`Gagal menghapus data: ${errData.error || 'Server Error'}`);
-        }
-      } catch (error) {
-        alert("Terjadi kesalahan jaringan saat menghapus.");
-      }
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
-      {/* HEADER */}
+      
+      {/* HEADER KHUSUS GURU (TANPA TOMBOL TAMBAH/IMPORT/EXPORT) */}
       <div className="bg-blue-700 text-white p-6 shadow-md z-20 shrink-0">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <Link href="/guru" className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all">
-              <ArrowLeft size={24} weight="bold" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-black uppercase tracking-widest flex items-center gap-2"><Student size={24}/> Master Data Santri</h1>
-              <p className="text-xs text-blue-200 font-medium">Kelola siswa, kenaikan kelas, dan arsip induk</p>
-            </div>
-          </div>
-
-          <div className="flex w-full md:w-auto gap-2">
-            <input type="file" accept=".xlsx, .xls" ref={fileInputRef} onChange={handleImportExcel} className="hidden" />
-            <button onClick={() => fileInputRef.current?.click()} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-900 px-4 py-2 rounded-xl font-bold text-sm transition-all shadow-lg">
-              <UploadSimple size={18} weight="bold" /> Import
-            </button>
-            <button onClick={handleExportExcel} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 px-4 py-2 rounded-xl font-bold text-sm shadow-lg shadow-green-500/30 transition-all">
-              <DownloadSimple size={18} weight="bold" /> Export
-            </button>
-            <button onClick={() => { setCurrentSantri({ status: 'Aktif', gender: 'L' }); setModalMode('add'); }} className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded-xl font-bold text-sm shadow-lg border border-blue-400 transition-all">
-              <Plus size={18} weight="bold" /> Tambah Santri
-            </button>
+        <div className="max-w-7xl mx-auto flex items-center gap-4">
+          <Link href="/guru" className="p-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all">
+            <ArrowLeft size={24} weight="bold" />
+          </Link>
+          <div>
+            <h1 className="text-xl font-black uppercase tracking-widest flex items-center gap-2">
+              <Student size={24}/> Database Santri
+            </h1>
+            <p className="text-xs text-blue-200 font-medium">Lihat dan cari data induk siswa peserta ujian.</p>
           </div>
         </div>
       </div>
 
       {/* FILTER & PENCARIAN */}
       <div className="max-w-7xl mx-auto w-full p-6 pb-2 shrink-0">
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col lg:flex-row gap-4 justify-between items-center relative z-10">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col lg:flex-row gap-4 justify-between items-center">
           <div className="relative w-full lg:w-96">
             <MagnifyingGlass size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" weight="bold" />
             <input 
@@ -331,67 +110,39 @@ export default function KelolaSantri() {
                 <option value="Semua">Semua Status</option>
                 <option value="Aktif">Aktif Saja</option>
                 <option value="Lulus">Telah Lulus</option>
-                <option value="Pindah">Pindah/Mutasi</option>
-                <option value="Drop Out">Drop Out</option>
-                {/* 🌟 OPSI BARU DI FILTER */}
                 <option value="Diarsipkan">Diarsipkan / Riwayat Lama</option>
               </select>
             </div>
           </div>
         </div>
-
-        {selectedIds.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4">
-            <div className="flex items-center gap-2 text-blue-800 font-black text-sm">
-              <CheckCircle size={20} weight="fill" className="text-blue-600" /> {selectedIds.length} Santri Dipilih
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <button onClick={handleBulkNaikKelas} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs transition-colors shadow-sm">
-                <CaretDoubleUp size={16} weight="bold" /> Naik Kelas Massal
-              </button>
-              <button onClick={() => handleBulkKecualikan("Lulus")} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-xs transition-colors shadow-sm">
-                <Student size={16} weight="bold" /> Luluskan
-              </button>
-              <button onClick={() => handleBulkKecualikan("Pindah")} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg font-bold text-xs transition-colors shadow-sm">
-                <Prohibit size={16} weight="bold" /> Pindahkan
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* TABEL DATA UTAMA */}
+      {/* TABEL DATA UTAMA (HANYA BACA) */}
       <div className="max-w-7xl mx-auto w-full px-6 pb-6 flex-1 flex flex-col">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden">
           <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left border-collapse min-w-[800px]">
+            <table className="w-full text-left border-collapse min-w-[700px]">
               <thead className="bg-slate-100 border-b border-slate-200 sticky top-0 z-10">
                 <tr className="text-xs font-black text-slate-500 uppercase tracking-widest">
-                  <th className="p-4 w-12 text-center">
-                    <input type="checkbox" className="w-4 h-4 accent-blue-600 cursor-pointer rounded" onChange={handleSelectAll} checked={selectedIds.length === filteredSantri.length && filteredSantri.length > 0} />
-                  </th>
                   <th className="p-4 w-12 text-center">No</th>
                   <th className="p-4">NIS</th>
                   <th className="p-4">Nama Lengkap</th>
                   <th className="p-4 text-center">Gender</th>
-                  <th className="p-4">Kelas</th>
+                  <th className="p-4 text-center">Kelas</th>
                   <th className="p-4 text-center">Status</th>
-                  <th className="p-4 text-right">Aksi Data</th>
+                  <th className="p-4 text-right pr-6">Detail</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={8} className="p-12 text-center">
+                    <td colSpan={7} className="p-12 text-center">
                       <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                       <p className="text-slate-500 font-bold">Sinkronisasi Database...</p>
                     </td>
                   </tr>
                 ) : filteredSantri.length > 0 ? filteredSantri.map((s, index) => (
-                  <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${selectedIds.includes(s.id) ? 'bg-blue-50/50' : ''} ${s.status === 'Diarsipkan' ? 'opacity-60' : ''}`}>
-                    <td className="p-4 text-center">
-                      <input type="checkbox" className="w-4 h-4 accent-blue-600 cursor-pointer rounded" checked={selectedIds.includes(s.id)} onChange={() => handleSelectOne(s.id)} />
-                    </td>
+                  <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${s.status === 'Diarsipkan' ? 'opacity-60' : ''}`}>
                     <td className="p-4 text-center font-black text-slate-400">{index + 1}</td>
                     <td className="p-4 font-bold text-slate-600 text-sm">{s.nis}</td>
                     <td className="p-4">
@@ -408,9 +159,8 @@ export default function KelolaSantri() {
                         </div>
                       )}
                     </td>
-                    <td className="p-4 font-black text-blue-600 text-sm">{s.kelas}</td>
+                    <td className="p-4 text-center font-black text-blue-600 text-sm">{s.kelas}</td>
                     <td className="p-4 text-center">
-                      {/* 🌟 PERBAIKAN WARNA STATUS DIARSIPKAN */}
                       <span className={`inline-block px-3 py-1 rounded-full font-black text-[10px] uppercase tracking-widest ${
                         s.status === 'Aktif' ? 'bg-green-100 text-green-700' :
                         s.status === 'Lulus' ? 'bg-blue-100 text-blue-700' : 
@@ -420,20 +170,22 @@ export default function KelolaSantri() {
                         {s.status}
                       </span>
                     </td>
-                    <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button onClick={() => { setCurrentSantri(s); setModalMode('view'); }} className="p-2 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"><Eye size={18} weight="bold" /></button>
-                        <button onClick={() => { setCurrentSantri(s); setModalMode('edit'); }} className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"><PencilSimple size={18} weight="bold" /></button>
-                        <button onClick={() => handleDelete(s.id)} className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors"><Trash size={18} weight="bold" /></button>
-                      </div>
+                    <td className="p-4 text-right pr-6">
+                      <button 
+                        onClick={() => { setCurrentSantri(s); setIsViewModalOpen(true); }} 
+                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors inline-flex"
+                        title="Lihat Detail"
+                      >
+                        <Eye size={18} weight="bold" />
+                      </button>
                     </td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={8} className="p-12 text-center">
+                    <td colSpan={7} className="p-12 text-center">
                       <Users size={48} className="mx-auto text-slate-300 mb-3" />
-                      <p className="text-slate-500 font-bold text-lg">Belum Ada Data Santri</p>
-                      <p className="text-slate-400 text-sm">Klik tombol "Tambah Santri" di pojok kanan atas untuk memasukkan data.</p>
+                      <p className="text-slate-500 font-bold text-lg">Data Santri Tidak Ditemukan</p>
+                      <p className="text-slate-400 text-sm">Jika kosong, hubungi Administrator untuk sinkronisasi data.</p>
                     </td>
                   </tr>
                 )}
@@ -443,74 +195,57 @@ export default function KelolaSantri() {
         </div>
       </div>
 
+      {/* FOOTER JUMLAH */}
       <div className="bg-white border-t border-slate-200 p-4 shrink-0 z-10 sticky bottom-0">
         <div className="max-w-7xl mx-auto flex justify-between items-center text-xs font-black text-slate-500 uppercase tracking-widest">
-          <p>Sistem Informasi TarbiyahTech</p>
+          <p>TarbiyahTech Institutional</p>
           <p className="bg-slate-100 px-4 py-2 rounded-lg border border-slate-200">
-            Menampilkan <span className="text-blue-600">{filteredSantri.length}</span> dari Total <span className="text-slate-800">{santriList.length}</span> Santri
+            Menampilkan <span className="text-blue-600">{filteredSantri.length}</span> Santri
           </p>
         </div>
       </div>
 
-      {/* MODAL INPUT/EDIT */}
-      {modalMode && (
+      {/* MODAL VIEW SAJA (READ ONLY) */}
+      {isViewModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col">
-            <div className="p-5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-              <h2 className="font-black text-slate-800 uppercase tracking-widest text-sm flex items-center gap-2">
-                {modalMode === 'view' ? <><Eye size={20} className="text-blue-600"/> Detail Santri</> : 
-                 modalMode === 'edit' ? <><PencilSimple size={20} className="text-blue-600"/> Edit Data Santri</> : 
-                 <><Plus size={20} className="text-blue-600"/> Input Santri Baru</>}
+            <div className="p-5 bg-blue-600 text-white flex justify-between items-center">
+              <h2 className="font-black uppercase tracking-widest text-sm flex items-center gap-2">
+                <Student size={20} /> Kartu Identitas Santri
               </h2>
-              <button onClick={() => setModalMode(null)} className="p-1.5 hover:bg-slate-200 rounded-full text-slate-500 transition-colors"><X size={20} weight="bold" /></button>
+              <button onClick={() => setIsViewModalOpen(false)} className="p-1.5 hover:bg-white/20 rounded-full transition-colors"><X size={20} weight="bold" /></button>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nomor Induk Siswa (NIS)</label>
-                <input type="text" value={currentSantri.nis || ''} onChange={e => setCurrentSantri({...currentSantri, nis: e.target.value})} disabled={modalMode === 'view'} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-700 disabled:opacity-70" />
-              </div>
-              
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nama Lengkap</label>
-                <input type="text" value={currentSantri.nama || ''} onChange={e => setCurrentSantri({...currentSantri, nama: formatNama(e.target.value)})} disabled={modalMode === 'view'} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-black text-slate-800 disabled:opacity-70" />
+            <div className="p-6 space-y-4 bg-slate-50">
+              <div className="text-center mb-6">
+                <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-black text-3xl mx-auto mb-3 shadow-inner border-4 border-white">
+                  {currentSantri.nama?.charAt(0).toUpperCase()}
+                </div>
+                <h3 className="font-black text-xl text-slate-800">{formatNama(currentSantri.nama || "")}</h3>
+                <p className="text-sm font-bold text-slate-500 mt-1">NIS: {currentSantri.nis}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Gender</label>
-                  <select value={currentSantri.gender || 'L'} onChange={e => setCurrentSantri({...currentSantri, gender: e.target.value as 'L'|'P'})} disabled={modalMode === 'view'} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-slate-700 disabled:opacity-70">
-                    <option value="L">Laki-laki (L)</option>
-                    <option value="P">Perempuan (P)</option>
-                  </select>
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Gender</span>
+                  <span className="text-xs font-black text-slate-700">{currentSantri.gender === 'L' ? 'Laki-laki' : 'Perempuan'}</span>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Kelas Aktif</label>
-                  <input type="text" placeholder="Misal: X IPA 1" value={currentSantri.kelas || ''} onChange={e => setCurrentSantri({...currentSantri, kelas: e.target.value})} disabled={modalMode === 'view'} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-blue-600 disabled:opacity-70" />
+                <div className="flex justify-between border-b border-slate-100 pb-2">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Kelas Saat Ini</span>
+                  <span className="text-xs font-black text-blue-600">{currentSantri.kelas}</span>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status Keaktifan</label>
-                <select value={currentSantri.status || 'Aktif'} onChange={e => setCurrentSantri({...currentSantri, status: e.target.value as StatusSantri})} disabled={modalMode === 'view'} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-black text-slate-700 disabled:opacity-70">
-                  <option value="Aktif">Aktif Belajar</option>
-                  <option value="Lulus">Telah Lulus</option>
-                  <option value="Pindah">Pindah / Mutasi</option>
-                  <option value="Drop Out">Dikeluarkan (Drop Out)</option>
-                  {/* 🌟 OPSI BARU DI MODAL */}
-                  <option value="Diarsipkan">Diarsipkan (Histori Kelas)</option>
-                </select>
+                <div className="flex justify-between">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Status Siswa</span>
+                  <span className="text-xs font-black text-emerald-600">{currentSantri.status}</span>
+                </div>
               </div>
             </div>
 
-            {modalMode !== 'view' && (
-              <div className="p-4 border-t border-slate-200 bg-slate-50 flex gap-3">
-                <button onClick={() => setModalMode(null)} className="flex-1 py-3 bg-white border border-slate-300 text-slate-600 font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-slate-100 transition-colors">Batal</button>
-                <button onClick={handleSave} disabled={isSaving} className="flex-1 py-3 bg-blue-600 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors disabled:opacity-70">
-                  {isSaving ? "Menyimpan..." : "Simpan Data"}
-                </button>
-              </div>
-            )}
+            <div className="p-4 border-t border-slate-200 bg-white flex justify-end">
+              <button onClick={() => setIsViewModalOpen(false)} className="px-6 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors">
+                Tutup Kartu
+              </button>
+            </div>
           </div>
         </div>
       )}

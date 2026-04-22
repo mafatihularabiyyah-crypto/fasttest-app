@@ -238,7 +238,7 @@ export default function MainDashboard() {
             <div className="w-14 h-14 bg-orange-50 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-orange-500 transition-colors">
               <Student size={28} weight="fill" className="text-orange-500 group-hover:text-white transition-colors" />
             </div>
-            <h3 className="text-lg font-black text-slate-800 mb-2">Kelola Santri</h3>
+            <h3 className="text-lg font-black text-slate-800 mb-2">Database Santri</h3>
             <p className="text-sm font-medium text-slate-500 mb-6">Manajemen database siswa, cetak kartu, & daftar NIS.</p>
             <div className="flex items-center text-xs font-bold text-orange-500 group-hover:gap-2 transition-all">
               Kelola Data <CaretRight size={14} weight="bold" />

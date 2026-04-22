@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
 import { 
-  UserPlus, Student, Trash, MagnifyingGlass, IdentificationCard, 
-  Buildings, PencilSimple, CaretLeft, MicrosoftExcelLogo, FileArrowDown
+  UserPlus, Student, Trash, MagnifyingGlass, 
+  PencilSimple, MicrosoftExcelLogo, FileArrowDown
 } from "@phosphor-icons/react";
 
 export default function ManajemenSantriLengkap() {
@@ -21,7 +20,6 @@ export default function ManajemenSantriLengkap() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   
-  // STATE DIPERBARUI: Menambahkan NISN dan Jenis Kelamin (Default: L)
   const [formData, setFormData] = useState({ 
     nama: "", 
     nis: "", 
@@ -30,7 +28,6 @@ export default function ManajemenSantriLengkap() {
     jenis_kelamin: "L" 
   });
 
-  // Ambil data santri dari API
   const fetchSantri = async () => {
     setIsLoading(true);
     try {
@@ -45,13 +42,11 @@ export default function ManajemenSantriLengkap() {
 
   useEffect(() => { fetchSantri(); }, []);
 
-  // Ekstrak daftar kelas unik
   const daftarKelasUnik = useMemo(() => {
     const kelas = daftarSantri.map(s => s.kelas).filter(Boolean);
     return Array.from(new Set(kelas)).sort();
   }, [daftarSantri]);
 
-  // Tombol Simpan (Tambah Baru atau Update)
   const handleSimpanSantri = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -74,27 +69,24 @@ export default function ManajemenSantriLengkap() {
     setIsSaving(false);
   };
 
-  // Pemicu Modal Edit
   const openEditModal = (santri: any) => {
     setEditId(santri.id);
     setFormData({ 
       nama: santri.nama, 
       nis: santri.nis, 
-      nisn: santri.nisn || "", // Fallback jika kosong
+      nisn: santri.nisn || "",
       kelas: santri.kelas,
       jenis_kelamin: santri.jenis_kelamin || "L" 
     });
     setIsModalOpen(true);
   };
 
-  // Pemicu Modal Tambah
   const openTambahModal = () => {
     setEditId(null);
     setFormData({ nama: "", nis: "", nisn: "", kelas: "", jenis_kelamin: "L" });
     setIsModalOpen(true);
   };
 
-  // Fitur Ekspor CSV
   const handleExportCSV = () => {
     if (filteredSantri.length === 0) return alert("Tidak ada data untuk diekspor");
     
@@ -128,7 +120,6 @@ export default function ManajemenSantriLengkap() {
     } catch (error) { alert("Gagal menghapus santri."); }
   };
 
-  // Logika Filter Data Tiga Lapis
   const filteredSantri = daftarSantri.filter(s => {
     const matchSearch = s.nama?.toLowerCase().includes(search.toLowerCase()) || 
                         s.nis?.toLowerCase().includes(search.toLowerCase()) ||
@@ -139,24 +130,11 @@ export default function ManajemenSantriLengkap() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans p-4 sm:p-8">
+    <div className="min-h-screen bg-slate-50 font-sans p-6 md:p-8">
       <div className="max-w-6xl mx-auto">
-        
-        {/* TOMBOL KEMBALI & TAB NAVIGASI */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 mb-8 pb-4">
-          <Link href="/admin" className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold rounded-xl transition-all text-sm shadow-sm">
-            <CaretLeft size={16} weight="bold" /> Dashboard Utama
-          </Link>
-          
-          <div className="flex flex-wrap gap-2">
-            <Link href="/admin/guru" className="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">Manajemen Guru</Link>
-            <Link href="/admin/santri" className="px-5 py-2.5 rounded-xl font-black text-indigo-700 bg-indigo-100/50 shadow-sm transition-colors">Data Santri Aktif</Link>
-            <Link href="/admin/template" className="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">Master Template LJK</Link>
-          </div>
-        </div>
 
-        {/* HEADER */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
+        {/* HEADER SECTION (TANPA TAB NAVIGASI) */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8 pt-4">
           <div>
             <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
               <Student size={36} className="text-indigo-600" weight="fill" /> Kelola Data Santri
@@ -177,7 +155,7 @@ export default function ManajemenSantriLengkap() {
         </div>
 
         {/* TABEL DATA */}
-        <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           
           {/* BARIS PENCARIAN & FILTER */}
           <div className="p-5 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
@@ -186,7 +164,6 @@ export default function ManajemenSantriLengkap() {
             </div>
             
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-              {/* Filter Jenis Kelamin */}
               <select 
                 value={filterGender} 
                 onChange={(e) => setFilterGender(e.target.value)}
@@ -197,7 +174,6 @@ export default function ManajemenSantriLengkap() {
                 <option value="P">Perempuan (P)</option>
               </select>
 
-              {/* Filter Kelas */}
               <select 
                 value={filterKelas} 
                 onChange={(e) => setFilterKelas(e.target.value)}
@@ -209,7 +185,6 @@ export default function ManajemenSantriLengkap() {
                 ))}
               </select>
 
-              {/* Input Pencarian */}
               <div className="relative flex-1 sm:w-56">
                 <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input 
@@ -217,7 +192,7 @@ export default function ManajemenSantriLengkap() {
                   placeholder="Cari nama / NIS..." 
                   value={search} 
                   onChange={(e) => setSearch(e.target.value)} 
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm" 
                 />
               </div>
             </div>
