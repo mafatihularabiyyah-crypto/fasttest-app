@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
   ArrowLeft, Lightning, Warning, Check, X, ArrowCounterClockwise, 
-  FloppyDisk, Scan, XCircle, Trash, CheckCircle, ChartBar
+  FloppyDisk, Scan, CheckCircle, ChartBar, Trash
 } from "@phosphor-icons/react";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +37,7 @@ function ScannerContent() {
   const [realScanResult, setRealScanResult] = useState<HasilKoreksi | null>(null);
 
   const searchParams = useSearchParams();
-  const namaUjian = searchParams.get('namaUjian') || "Ujian Default";
+  const namaUjian = searchParams.get('namaUjian') || "scan OMR";
 
   // --- 1. MENGHIDUPKAN KAMERA ---
   useEffect(() => {
@@ -58,7 +58,7 @@ function ScannerContent() {
     return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
   }, []); 
 
-  // --- 2. FUNGSI AI SUPER KETAT (HANYA BISA KERTAS LJK ASLI) ---
+  // --- 2. FUNGSI AI SUPER KETAT ---
   const checkLJKInFrame = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return false;
     const video = videoRef.current;
@@ -74,45 +74,38 @@ function ScannerContent() {
     const boxHeight = boxWidth * 1.414; 
     const startX = (canvas.width - boxWidth) / 2;
     const startY = (canvas.height - boxHeight) / 2;
-    const anchorSize = boxWidth * 0.12; // Ukuran kotak evaluasi diperkecil agar lebih pas
+    const anchorSize = boxWidth * 0.16; // Lebih lebar agar responsif dengan kotak baru
 
-    // Deteksi Hitam Pekat (Untuk Sudut Jangkar)
     const isAreaDark = (x: number, y: number, w: number, h: number) => {
       const frame = ctx.getImageData(x, y, w, h);
       let darkPixels = 0;
       for (let i = 0; i < frame.data.length; i += 4) {
         const brightness = (frame.data[i] * 0.299) + (frame.data[i+1] * 0.587) + (frame.data[i+2] * 0.114);
-        if (brightness < 70) darkPixels++; // Batas gelap diperketat (harus sangat gelap/hitam)
+        if (brightness < 70) darkPixels++;
       }
-      // Minimal 60% area sudut HARUS HITAM (bukan cuma 30% seperti sebelumnya)
       return (darkPixels / (frame.data.length / 4)) > 0.6; 
     };
 
-    // Deteksi Putih Terang (Untuk Kertas LJK)
     const isAreaLight = (x: number, y: number, w: number, h: number) => {
       const frame = ctx.getImageData(x, y, w, h);
       let lightPixels = 0;
       for (let i = 0; i < frame.data.length; i += 4) {
         const brightness = (frame.data[i] * 0.299) + (frame.data[i+1] * 0.587) + (frame.data[i+2] * 0.114);
-        if (brightness > 160) lightPixels++; // Harus terang seperti kertas
+        if (brightness > 160) lightPixels++;
       }
       return (lightPixels / (frame.data.length / 4)) > 0.6; 
     };
 
-    // 1. CEK 4 SUDUT: Apakah benar-benar hitam?
     const topLeft = isAreaDark(startX, startY, anchorSize, anchorSize);
     const topRight = isAreaDark(startX + boxWidth - anchorSize, startY, anchorSize, anchorSize);
     const bottomLeft = isAreaDark(startX, startY + boxHeight - anchorSize, anchorSize, anchorSize);
     const bottomRight = isAreaDark(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize, anchorSize);
-
-    // 2. CEK TENGAH: Apakah bagian tengahnya kertas putih? (Mencegah wajah/baju gelap terdeteksi)
     const centerLight = isAreaLight(startX + (boxWidth/2) - anchorSize, startY + (boxHeight/2) - anchorSize, anchorSize * 2, anchorSize * 2);
 
-    // HANYA AKAN MENJEPRET JIKA: 4 Sudut Hitam DAN Tengahnya Putih!
     return topLeft && topRight && bottomLeft && bottomRight && centerLight;
   }, []);
 
-  // --- 3. LOOPING SCANNER (FULL OTOMATIS) ---
+  // --- 3. LOOPING SCANNER ---
   useEffect(() => {
     let scanInterval: NodeJS.Timeout;
     if (scanState === 'searching') {
@@ -134,7 +127,7 @@ function ScannerContent() {
     return () => clearInterval(scanInterval);
   }, [scanState, checkLJKInFrame]);
 
-  // --- 4. MESIN OMR ASLI: MEMBACA BULATAN JAWABAN ---
+  // --- 4. MESIN OMR ASLI ---
   const captureAndProcessOMR = () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
@@ -243,25 +236,30 @@ function ScannerContent() {
   const hasil = realScanResult;
 
   return (
-    <div className="fixed inset-0 bg-black flex flex-col font-sans overflow-hidden">
+    // z-[999] agar Full Screen menutupi Header FastTest
+    <div className="fixed inset-0 z-[999] bg-black flex flex-col font-sans overflow-hidden">
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* ========================================================= */}
-      {/* LAYER 1: KAMERA & PANDUAN SCANNER BERSIIH                   */}
-      {/* ========================================================= */}
+      {/* LAYER 1: KAMERA & PANDUAN SCANNER */}
       <div className="absolute inset-0 z-10">
-        <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-center z-50 bg-gradient-to-b from-black/80 to-transparent">
-          <Link href="/guru" className="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white backdrop-blur-md transition-all">
-            <ArrowLeft size={24} weight="bold" />
+        <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-start z-50 bg-gradient-to-b from-black/90 via-black/40 to-transparent">
+          
+          {/* Tombol Kembali Lebih Jelas */}
+          <Link href="/guru" className="flex items-center gap-2 px-4 py-2.5 bg-black/40 hover:bg-black/70 border border-white/20 rounded-full text-white backdrop-blur-md transition-all shadow-lg">
+            <ArrowLeft size={20} weight="bold" />
+            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Kembali</span>
           </Link>
+
           <div className="flex flex-col items-center">
-            <span className="bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full mb-1 border border-blue-400 flex items-center gap-1 shadow-lg shadow-blue-500/20">
-              <Scan size={12} weight="bold"/> AI SCANNER AKTIF
+            {/* Teks Scanner Diperbarui */}
+            <span className="bg-blue-600 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2 border border-blue-400 flex items-center gap-1 shadow-lg shadow-blue-500/20">
+              <Scan size={14} weight="bold"/> Fast Test Scanner
             </span>
-            <p className="text-white text-xs font-bold drop-shadow-md truncate max-w-[200px]">{namaUjian}</p>
+            <p className="text-white text-sm font-bold drop-shadow-md truncate max-w-[200px]">{namaUjian}</p>
           </div>
-          <button className="p-2 bg-white/20 hover:bg-white/30 rounded-full text-white backdrop-blur-md transition-all">
-            <Lightning size={24} weight="bold" />
+
+          <button className="p-3 bg-black/40 hover:bg-black/70 border border-white/20 rounded-full text-white backdrop-blur-md transition-all shadow-lg">
+            <Lightning size={20} weight="bold" />
           </button>
         </div>
 
@@ -273,37 +271,38 @@ function ScannerContent() {
 
         <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
           <div 
-            className={`relative w-[85%] max-w-[400px] aspect-[1/1.414] rounded-xl border-2 transition-all duration-300 shadow-[0_0_0_9999px_rgba(0,0,0,0.7)] flex flex-col items-center justify-center overflow-hidden
+            className={`relative w-[85%] max-w-[400px] aspect-[1/1.414] rounded-xl border-2 transition-all duration-300 shadow-[0_0_0_9999px_rgba(0,0,0,0.85)] flex flex-col items-center justify-center overflow-hidden
               ${scanState === 'locked' ? 'border-green-500 scale-[1.02]' : 
                 scanState === 'aligning' ? 'border-yellow-400' :
                 scanState === 'invalid' ? 'border-red-500 scale-95 bg-red-500/10' : 'border-white/40'}
             `}
           >
-            {/* 4 Kotak Anchor */}
-            <div className={`absolute top-6 left-6 w-8 h-8 border-2 transition-colors duration-300 rounded-sm ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : 'bg-black/30 border-white/60'}`}></div>
-            <div className={`absolute top-6 right-6 w-8 h-8 border-2 transition-colors duration-300 rounded-sm ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : 'bg-black/30 border-white/60'}`}></div>
-            <div className={`absolute bottom-6 left-6 w-8 h-8 border-2 transition-colors duration-300 rounded-sm ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : 'bg-black/30 border-white/60'}`}></div>
-            <div className={`absolute bottom-6 right-6 w-8 h-8 border-2 transition-colors duration-300 rounded-sm ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : 'bg-black/30 border-white/60'}`}></div>
+            {/* 4 Kotak Diperlebar (w-12 / w-16 dan border-4) */}
+            <div className={`absolute top-4 left-4 w-12 h-12 sm:w-16 sm:h-16 border-4 transition-colors duration-300 rounded-sm ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : 'bg-black/30 border-white/60'}`}></div>
+            <div className={`absolute top-4 right-4 w-12 h-12 sm:w-16 sm:h-16 border-4 transition-colors duration-300 rounded-sm ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : 'bg-black/30 border-white/60'}`}></div>
+            <div className={`absolute bottom-4 left-4 w-12 h-12 sm:w-16 sm:h-16 border-4 transition-colors duration-300 rounded-sm ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : 'bg-black/30 border-white/60'}`}></div>
+            <div className={`absolute bottom-4 right-4 w-12 h-12 sm:w-16 sm:h-16 border-4 transition-colors duration-300 rounded-sm ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : 'bg-black/30 border-white/60'}`}></div>
 
             {(scanState === 'searching' || scanState === 'invalid') && (
               <>
                 <div className="absolute top-0 left-0 w-full h-[2px] bg-blue-500 shadow-[0_0_15px_3px_rgba(59,130,246,0.8)] animate-[scan_2s_ease-in-out_infinite] pointer-events-none" />
-                <div className="bg-black/60 backdrop-blur px-4 py-3 rounded-2xl border border-white/20 flex flex-col items-center gap-1 text-center absolute">
-                  <Scan size={20} className="text-blue-400 animate-pulse mb-1" />
-                  <p className="text-white text-[10px] font-bold tracking-widest uppercase">Paskan 4 Kotak LJK</p>
-                  <p className="text-white/50 text-[8px] font-bold uppercase mt-1">Otomatis memindai jika pas</p>
+                {/* Teks di tengah (menggunakan relative dan z-20 tanpa absolute positioning tambahan) */}
+                <div className="bg-black/60 backdrop-blur px-5 py-4 rounded-2xl border border-white/20 flex flex-col items-center gap-1 text-center relative z-20">
+                  <Scan size={24} className="text-blue-400 animate-pulse mb-1" />
+                  <p className="text-white text-xs font-bold tracking-widest uppercase">Paskan 4 Sudut LJK</p>
+                  <p className="text-white/50 text-[9px] font-bold uppercase mt-1">Otomatis memindai jika pas</p>
                 </div>
               </>
             )}
 
             {scanState === 'aligning' && (
-              <div className="bg-yellow-500/90 backdrop-blur px-5 py-2.5 rounded-full border border-yellow-300 flex items-center gap-2 absolute">
+              <div className="bg-yellow-500/90 backdrop-blur px-5 py-2.5 rounded-full border border-yellow-300 flex items-center gap-2 relative z-20">
                 <p className="text-white text-[10px] font-black tracking-widest uppercase">LJK Ditemukan! Mengoreksi...</p>
               </div>
             )}
             
             {scanState === 'locked' && (
-              <div className="bg-green-600/90 backdrop-blur px-5 py-2.5 rounded-full border border-green-400 flex items-center gap-2 animate-pulse scale-110 transition-transform absolute">
+              <div className="bg-green-600/90 backdrop-blur px-5 py-2.5 rounded-full border border-green-400 flex items-center gap-2 animate-pulse scale-110 transition-transform relative z-20">
                 <Check size={18} weight="bold" className="text-white" />
                 <p className="text-white text-[10px] font-black tracking-widest uppercase">Membaca Bulatan!</p>
               </div>
@@ -314,9 +313,7 @@ function ScannerContent() {
 
       <div className={`absolute inset-0 bg-white z-40 transition-opacity duration-150 pointer-events-none ${scanState === 'flashing' ? 'opacity-100' : 'opacity-0'}`} />
 
-      {/* ========================================================= */}
-      {/* LAYER 2: POP-UP HASIL KOREKSI                             */}
-      {/* ========================================================= */}
+      {/* LAYER 2: POP-UP HASIL KOREKSI */}
       {scanState === 'result' && hasil && (
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
           <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">

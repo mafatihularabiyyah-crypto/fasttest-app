@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
-// Kita gunakan pemanggilan relatif standar yang paling aman
-import "./globals.css";
+import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "TarbiyahTech",
-  description: "Sistem Manajemen Pendidikan",
+  title: "FastTest - TarbiyahTech",
+  description: "Sistem Manajemen Pendidikan Terpadu",
 };
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode; 
+  children: React.ReactNode;
 }) {
   return (
     <html lang="id">
