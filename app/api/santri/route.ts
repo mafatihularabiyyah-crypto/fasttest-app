@@ -1,12 +1,8 @@
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-
-// ... sisa kode import dan GET/POST Ustadz di bawahnya ...
-
 import { NextResponse, NextRequest } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
 export const runtime = 'edge';
+export const dynamic = "force-dynamic";
 
 // ==========================================
 // 1. GET: MENGAMBIL DATA SANTRI
