@@ -1,9 +1,13 @@
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
+// ... sisa kode import dan GET/POST Ustadz di bawahnya ...
+
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server"; // Helper untuk membaca sesi login
 
 export const runtime = 'edge';
-export const dynamic = "force-dynamic";
 
 // Klien Khusus ADMIN (Service Role) untuk membuat akun tanpa ter-logout
 const supabaseAdmin = createSupabaseAdmin(
