@@ -637,31 +637,33 @@ export default function LJKGeneratorFinal() {
               </div>
 
               <div className="flex justify-between shrink-0" style={{ gap: '20px' }}>
-                {Array.from({ length: kolom }).map((_, colIndex) => (
-                  <div key={colIndex} className="flex-1 flex flex-col gap-y-2">
-                    {Array.from({ length: soalPerKolom }).map((_, rowIndex) => {
-                      const nomorSoal = rowIndex + 1 + (colIndex * soalPerKolom);
-                      if (nomorSoal > jumlahSoal) return <div key={nomorSoal} className="py-0.5 opacity-0 h-[22px]"></div>;
+  {Array.from({ length: kolom }).map((_, colIndex) => (
+    <div key={colIndex} className="flex-1 flex flex-col gap-y-2">
+      {Array.from({ length: soalPerKolom }).map((_, rowIndex) => {
+        const nomorSoal = rowIndex + 1 + (colIndex * soalPerKolom);
+        if (nomorSoal > jumlahSoal) return <div key={nomorSoal} className="py-0.5 opacity-0 h-[22px]"></div>;
 
-                      return (
-                        <div key={nomorSoal} className="flex items-center gap-2 py-0.5 border-b border-[#eeeeee]">
-                          <span className="w-6 text-right font-black text-sm">{nomorSoal}.</span>
-                          <div className="flex gap-1.5">
-                            {Array.from({ length: jumlahPilihan }).map((_, optIdx) => (
-                              <svg key={optIdx} width={bubbleSize} height={bubbleSize} viewBox={`0 0 ${bubbleSize} ${bubbleSize}`} style={{ display: "block" }}>
-                                <circle cx={bubbleSize/2} cy={bubbleSize/2} r={(bubbleSize/2) - 1} fill="none" stroke="#000000" strokeWidth="1.5" />
-                                <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize={fontSize} fontWeight="900" fill="#000000" fontFamily="sans-serif">
-                                  {getOptionLabel(optIdx)}
-                                </text>
-                              </svg>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
+        return (
+          // SAYA MENGUBAH BAGIAN INI: Menghapus items-center, menggantinya dengan items-start
+          <div key={nomorSoal} className="flex items-start gap-2 py-0.5 border-b border-[#eeeeee]">
+            {/* Nomor soal saya beri margin-top (mt-[3px]) agar posisinya turun sejajar dengan lingkaran */}
+            <span className="w-6 text-right font-black text-sm shrink-0 mt-[3px] leading-none">{nomorSoal}.</span>
+            <div className="flex gap-1.5">
+              {Array.from({ length: jumlahPilihan }).map((_, optIdx) => (
+                <svg key={optIdx} width={bubbleSize} height={bubbleSize} viewBox={`0 0 ${bubbleSize} ${bubbleSize}`} style={{ display: "block" }}>
+                  <circle cx={bubbleSize/2} cy={bubbleSize/2} r={(bubbleSize/2) - 1} fill="none" stroke="#000000" strokeWidth="1.5" />
+                  <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize={fontSize} fontWeight="900" fill="#000000" fontFamily="sans-serif">
+                    {getOptionLabel(optIdx)}
+                  </text>
+                </svg>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  ))}
+</div>
 
               {useEsai && (
                 <div className="mt-8 w-full border-2 border-black p-4 flex flex-col shrink-0 bg-white relative" style={{ height: `${tinggiEsaiCM}cm` }}>
