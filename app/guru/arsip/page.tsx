@@ -49,7 +49,8 @@ export default function ArsipUjianPage() {
     const storedHiddenYears = localStorage.getItem('hiddenYears_tarbiyahtech');
     if (storedHiddenYears) setHiddenYears(JSON.parse(storedHiddenYears));
 
-    fetch('/api/arsip')
+    // PERBAIKAN URL API: Menjadi /api/admin/arsip
+    fetch('/api/admin/arsip')
       .then(res => res.json())
       .then(data => {
         const formattedFolders = data.map((d: any) => ({
@@ -59,7 +60,7 @@ export default function ArsipUjianPage() {
           tanggal: new Date(d.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
           rawTanggal: d.tanggal.split('T')[0],
           pengajar: d.guru?.nama || "Ustadz/Ustadzah",
-          totalScan: d._count.hasilUjian, 
+          totalScan: d._count?.hasilUjian || 0, 
           tipe: d.tipe,
           linkSoal: d.linkSoal || "",
           token: d.token || d.kode || "CBT-OFF"
@@ -94,22 +95,22 @@ export default function ArsipUjianPage() {
     setStudentFilterKelas("Semua");
     
     try {
-      const res = await fetch(`/api/arsip?ujianId=${folder.id}`);
+      // PERBAIKAN URL API: Menjadi /api/admin/arsip
+      const res = await fetch(`/api/admin/arsip?ujianId=${folder.id}`);
       const data = await res.json();
 
-      setSoalData(data.soal);
+      setSoalData(data.soal || []);
 
-      const kunci = data.soal.map((s: any) => {
+      const kunci = (data.soal || []).map((s: any) => {
         const opsiBenar = s.opsi.find((o: any) => o.is_correct);
         return opsiBenar ? opsiBenar.label : '-';
       });
       setKunciJawaban(kunci);
 
-      const students = data.hasilUjian.map((h: any) => {
+      const students = (data.hasilUjian || []).map((h: any) => {
         let answersText = [];
         try { answersText = JSON.parse(h.answersJson || "[]"); } catch(e) {}
         
-        // Mencegah sistem meminjam nama folder jika foldernya untuk banyak kelas (ada koma)
         const folderKelasTunggal = typeof folder.kelas === 'string' && folder.kelas.includes(',') ? null : folder.kelas;
 
         return {
@@ -117,7 +118,6 @@ export default function ArsipUjianPage() {
           santriId: h.santriId,
           nama: h.santri?.nama || "Siswa Terhapus",
           nis: h.santri?.nis || "-",
-          // PERBAIKAN: Jika kelas dari database santri kosong, jangan ambil folder yang banyak komanya
           kelas: h.santri?.kelas || h.kelas || folderKelasTunggal || "-", 
           nilai: h.nilaiMurni || 0,
           benar: h.benar || 0,
@@ -186,7 +186,8 @@ export default function ArsipUjianPage() {
   const handleSimpanEditFolder = async () => {
     setIsLoadingData(true);
     try {
-      const res = await fetch('/api/arsip', {
+      // PERBAIKAN URL API: Menjadi /api/admin/arsip
+      const res = await fetch('/api/admin/arsip', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -215,7 +216,8 @@ export default function ArsipUjianPage() {
   const handleEksekusiHapusFolder = async () => {
     setIsLoadingData(true);
     try {
-      const res = await fetch(`/api/arsip?id=${modalHapusFolder.id}`, { method: 'DELETE' });
+      // PERBAIKAN URL API: Menjadi /api/admin/arsip
+      const res = await fetch(`/api/admin/arsip?id=${modalHapusFolder.id}`, { method: 'DELETE' });
       if (res.ok) {
         setFolders(folders.filter(f => f.id !== modalHapusFolder.id));
         setModalHapusFolder({isOpen: false, id: null});
@@ -295,7 +297,10 @@ export default function ArsipUjianPage() {
   const handleRemedialChange = (id: number, val: string) => setStudentsData(prev => prev.map(s => s.id === id ? { ...s, remedialScore: val } : s));
   const handleSimpanRemedial = () => { setIsSavingRemedial(true); setTimeout(() => { setIsSavingRemedial(false); alert("Penilaian berhasil disimpan!"); }, 800); };
   const handleSimpanEsai = () => { setStudentsData(prev => prev.map(s => s.id === modalEsai.student.id ? { ...s, nilaiEsai: modalEsai.scoreInput } : s)); setModalEsai({isOpen: false, student: null, scoreInput: ""}); };
+  
   const handleSimpanLinkSoal = () => {
+    // PERBAIKAN: API Call ke database untuk Simpan Link belum diimplementasikan di backend,
+    // Sementara kita hanya update State Frontend (bisa dikembangkan nanti jika diperlukan backendnya)
     setFolders(folders.map(f => f.id === modalLinkSoal.folderId ? { ...f, linkSoal: modalLinkSoal.url } : f));
     if (selectedFolder && selectedFolder.id === modalLinkSoal.folderId) setSelectedFolder({ ...selectedFolder, linkSoal: modalLinkSoal.url });
     setModalLinkSoal({isOpen: false, folderId: "", url: ""});
@@ -366,6 +371,9 @@ export default function ArsipUjianPage() {
     }, 1000);
   };
 
+  // ======================================================================
+  // RENDER VIEW 1: DAFTAR FOLDER UJIAN
+  // ======================================================================
   if (activeView === "folder_list") {
     const filteredFolders = folders.filter(f => {
       const matchQuery = f.nama.toLowerCase().includes(searchQuery.toLowerCase()) || f.pengajar.toLowerCase().includes(searchQuery.toLowerCase());
@@ -839,8 +847,9 @@ export default function ArsipUjianPage() {
               <button onClick={async () => {
                   setIsSavingKunci(true);
                   try {
+                    // PERBAIKAN URL API: Menjadi /api/admin/arsip
                     const payload = kunciJawaban.map((jawaban, index) => ({ soalId: soalData[index].id, labelBenar: jawaban }));
-                    const res = await fetch('/api/arsip', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ujianId: selectedFolder.id, kunciBaru: payload, orderedKunci: kunciJawaban }) });
+                    const res = await fetch('/api/admin/arsip', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ujianId: selectedFolder.id, kunciBaru: payload, orderedKunci: kunciJawaban }) });
                     if (res.ok) {
                       alert("Kunci jawaban berhasil diperbarui!\nNilai seluruh siswa telah dikoreksi ulang secara otomatis.");
                       setShowEditKunci(false); handleBukaFolder(selectedFolder);
@@ -859,7 +868,6 @@ export default function ArsipUjianPage() {
 
       {showAnalisis && analysisData && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          {/* Modal Analisis (Isi Tetap Seperti Sebelumnya) */}
           <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl flex flex-col h-[90vh]">
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 rounded-t-2xl shrink-0">
               <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><ChartBar size={24} className="text-blue-600" weight="fill" /> Laporan Analisis Evaluasi Belajar</h3>
