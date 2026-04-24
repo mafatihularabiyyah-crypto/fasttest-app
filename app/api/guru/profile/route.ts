@@ -1,10 +1,9 @@
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server"; 
-
-export const runtime = 'edge';
-// 🚨 ANTI-CACHE (SANGAT PENTING!) 🚨
-// Ini memaksa Next.js untuk selalu mengambil data baru, bukan data memori lama
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {

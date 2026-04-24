@@ -1,8 +1,9 @@
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-
-export const runtime = 'edge';
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {

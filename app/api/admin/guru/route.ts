@@ -1,13 +1,10 @@
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-
-// ... sisa kode import dan GET/POST Ustadz di bawahnya ...
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 
 import { NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server"; // Helper untuk membaca sesi login
-
-export const runtime = 'edge';
 
 // Klien Khusus ADMIN (Service Role) untuk membuat akun tanpa ter-logout
 const supabaseAdmin = createSupabaseAdmin(
@@ -19,53 +16,15 @@ const supabaseAdmin = createSupabaseAdmin(
 // MENGAMBIL DAFTAR GURU (Hanya Se-Sekolah)
 // ==========================================
 export async function GET(req: Request) {
-  try {
-    const supabase = await createClient(); // Cek siapa yang login
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) throw new Error("Akses ditolak: Sesi tidak ditemukan.");
-
-    console.log("\n=== 🕵️ DEBUG: MENGAMBIL DATA GURU ===");
-    console.log("1. ID Admin Login:", user.id);
-
-    // Cari tahu ID Sekolah Admin ini
-    const { data: adminProfil, error: adminError } = await supabase
-      .from("Guru")
-      .select("sekolah_id, role")
-      .eq("id", user.id)
-      .single();
-
-    if (adminError) console.log("❌ ERROR Ambil Profil Admin:", adminError.message);
-    console.log("2. Profil Admin:", adminProfil);
-
-    // Jika Admin tidak punya sekolah_id, jangan paksa query, langsung kembalikan kosong
-    if (!adminProfil || !adminProfil.sekolah_id) {
-      console.log("⚠️ WARNING: Admin ini TIDAK PUNYA sekolah_id. Mengembalikan array kosong.");
-      console.log("======================================\n");
-      return NextResponse.json([], { status: 200 }); 
-    }
-
-    // Ambil guru yang role-nya 'guru' dan satu sekolah dengan Admin
-    const { data, error } = await supabaseAdmin
-      .from('Guru')
-      .select('*')
-      .eq('role', 'guru')
-      .eq('sekolah_id', adminProfil.sekolah_id) 
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      console.log("❌ ERROR Mengambil Tabel Guru:", error.message);
-      throw error;
-    }
-    
-    console.log(`3. ✅ Ditemukan ${data?.length || 0} guru untuk sekolah ${adminProfil.sekolah_id}`);
-    console.log("======================================\n");
-
-    return NextResponse.json(data || [], { status: 200 });
-  } catch (error: any) {
-    console.log("❌ CATCH ERROR GET:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+   try {
+       // DI DALAM FUNGSI: Ini aman, hanya dieksekusi saat ada yang mengakses API
+       const supabase = await createClient(); 
+       
+       const { data } = await supabase.from('Guru').select('*');
+       return NextResponse.json(data);
+   } catch (error) {
+       // ...
+   }
 }
 
 // ==========================================
