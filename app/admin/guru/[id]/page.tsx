@@ -1,121 +1,125 @@
-export const runtime = 'edge';
 "use client";
 
-import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
 import Link from "next/link";
-import { CaretLeft, FolderOpen, MagnifyingGlass, FileText, CalendarBlank, Users } from "@phosphor-icons/react";
+import { 
+  ArrowLeft, Scan, ChartBar, Key, FilePdf, Archive, 
+  Users, CalendarBlank, Hash
+} from "@phosphor-icons/react";
 
-export default function DetailArsipGuruPage() {
-  const params = useParams();
-  const id = params.id as string; // ID Guru dari URL
-  
-  const [profilGuru, setProfilGuru] = useState<{nama: string, email: string} | null>(null);
-  const [daftarArsip, setDaftarArsip] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState("");
-
-  useEffect(() => {
-    const fetchDetailGuru = async () => {
-      try {
-        const res = await fetch(`/api/admin/guru/arsip?guru_id=${id}`);
-        const data = await res.json();
-        
-        if (data.profil) setProfilGuru(data.profil);
-        if (data.arsip) setDaftarArsip(data.arsip);
-      } catch (error) {
-        console.error("Gagal memuat detail guru:", error);
-      }
-      setIsLoading(false);
-    };
-
-    if (id) fetchDetailGuru();
-  }, [id]);
-
-  const filteredArsip = daftarArsip.filter(a => 
-    a.judul_ujian?.toLowerCase().includes(search.toLowerCase()) || 
-    a.kelas?.toLowerCase().includes(search.toLowerCase())
-  );
+export default function DetailUjianDashboard() {
+  // Dalam aplikasi nyata, data ini diambil dari Database (Supabase) berdasarkan [id] di URL
+  const detailUjian = {
+    id: "UJN-2026-001",
+    nama: "Ujian Akhir Semester: Bahasa Arab",
+    kelas: "XII IPA & IPS",
+    tanggal: "15 Juni 2026",
+    jumlahSoal: 40,
+    totalSiswa: 120,
+    sudahDiScan: 45
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-slate-50 font-sans pb-20">
+      
+      {/* HEADER DINAMIS (Menyesuaikan Ujian yang Dibuka) */}
+      <div className="bg-blue-700 text-white p-6 shadow-md rounded-b-[2.5rem] relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
         
-        {/* TOMBOL KEMBALI */}
-        <div className="mb-8 border-b border-slate-200 pb-4">
-          <Link href="/admin/guru" className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold rounded-xl transition-all text-sm shadow-sm">
-            <CaretLeft size={16} weight="bold" /> Kembali ke Manajemen Guru
+        <div className="max-w-4xl mx-auto relative z-10">
+          <Link href="/guru" className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-full text-sm font-bold backdrop-blur-md transition-all mb-6">
+            <ArrowLeft size={16} weight="bold" /> Kembali ke Daftar Ujian
           </Link>
-        </div>
-
-        {/* HEADER PROFIL GURU */}
-        <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200 mb-8 flex items-center gap-6">
-          <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center font-black text-4xl shadow-inner">
-            {profilGuru?.nama ? profilGuru.nama.charAt(0).toUpperCase() : "?"}
+          
+          <h1 className="text-3xl font-black tracking-tight mb-2">{detailUjian.nama}</h1>
+          
+          <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-blue-100">
+            <div className="flex items-center gap-1.5"><Users size={18} /> {detailUjian.kelas}</div>
+            <div className="flex items-center gap-1.5"><CalendarBlank size={18} /> {detailUjian.tanggal}</div>
+            <div className="flex items-center gap-1.5"><Hash size={18} /> {detailUjian.jumlahSoal} Soal</div>
           </div>
+        </div>
+      </div>
+
+      {/* STATISTIK PROGRES SCAN */}
+      <div className="max-w-4xl mx-auto px-6 -mt-6 relative z-20">
+        <div className="bg-white p-5 rounded-2xl shadow-lg border border-slate-100 flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest rounded">Status: Read-Only</span>
-              <span className="text-xs font-bold text-slate-400">Pengawas: Administrator</span>
-            </div>
-            <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-              {profilGuru ? profilGuru.nama : "Memuat Profil..."}
-            </h1>
-            <p className="text-sm font-bold text-slate-500">{profilGuru?.email}</p>
+            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Progres Scan LJK</p>
+            <p className="text-sm font-bold text-slate-700">
+              <span className="text-2xl font-black text-blue-600">{detailUjian.sudahDiScan}</span> / {detailUjian.totalSiswa} Siswa
+            </p>
+          </div>
+          <div className="w-1/2 h-3 bg-slate-100 rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-blue-500 rounded-full" 
+              style={{ width: `${(detailUjian.sudahDiScan / detailUjian.totalSiswa) * 100}%` }}
+            ></div>
           </div>
         </div>
+      </div>
 
-        {/* DAFTAR ARSIP UJIAN */}
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
-            <h2 className="text-lg font-black text-slate-800 flex items-center gap-2">
-              <FolderOpen size={24} className="text-blue-600" weight="fill" /> Arsip Ujian Dibuat
-            </h2>
-            <div className="relative w-full sm:w-80">
-              <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Cari judul ujian atau kelas..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all" />
+      {/* MENU UTAMA UJIAN */}
+      <div className="max-w-4xl mx-auto p-6 mt-4">
+        <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest mb-4 border-b border-slate-200 pb-2">Menu Kelola Ujian</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          
+          <Link href={`/guru/scan?namaUjian=${encodeURIComponent(detailUjian.nama)}`} 
+                className="col-span-1 md:col-span-2 lg:col-span-1 group relative bg-blue-600 p-6 rounded-3xl shadow-lg shadow-blue-600/30 hover:-translate-y-1 transition-all overflow-hidden flex flex-col justify-between min-h-[160px]">
+            <div className="absolute top-0 right-0 p-4 opacity-20 transform group-hover:scale-110 group-hover:rotate-12 transition-transform">
+              <Scan size={80} weight="fill" className="text-white" />
             </div>
-          </div>
+            <div className="relative z-10 text-white">
+              <h3 className="text-xl font-black mb-1 drop-shadow-md">Scan LJK</h3>
+              <p className="text-xs font-medium text-blue-100 drop-shadow-md">Kamera otomatis mendeteksi kertas</p>
+            </div>
+            <div className="relative z-10 mt-4 bg-white/20 backdrop-blur inline-flex px-4 py-2 rounded-full text-white text-xs font-bold w-max border border-white/30">
+              Buka Kamera &rarr;
+            </div>
+          </Link>
 
-          <div className="p-6">
-            {isLoading ? (
-              <div className="py-12 text-center text-slate-500 font-bold flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-                Memuat riwayat ujian...
-              </div>
-            ) : filteredArsip.length === 0 ? (
-              <div className="py-16 text-center flex flex-col items-center">
-                <div className="w-20 h-20 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-4">
-                  <FileText size={40} weight="light" />
-                </div>
-                <h3 className="text-xl font-black text-slate-700 mb-2">Arsip Masih Kosong</h3>
-                <p className="text-sm font-medium text-slate-500 max-w-sm">Guru ini belum membuat ujian atau menyimpan LJK apapun di sistem.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredArsip.map((arsip) => (
-                  <div key={arsip.id} className="border border-slate-200 rounded-2xl p-5 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-500/10 transition-all group">
-                    <h3 className="font-black text-slate-800 text-lg mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
-                      {arsip.judul_ujian || "Ujian Tanpa Judul"}
-                    </h3>
-                    <div className="space-y-2 mb-6">
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                        <Users size={16} /> Kelas: <span className="text-slate-700">{arsip.kelas || "-"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                        <CalendarBlank size={16} /> Dibuat: {new Date(arsip.created_at).toLocaleDateString('id-ID')}
-                      </div>
-                    </div>
-                    <button className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-xl transition-colors border border-blue-200/50">
-                      Lihat Detail Ujian
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <Link href={`/guru/arsip?id=${detailUjian.id}`} 
+                className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-green-500 hover:shadow-md transition-all flex flex-col justify-between min-h-[160px]">
+            <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 mb-4 group-hover:scale-110 transition-transform">
+              <ChartBar size={28} weight="fill" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 mb-1">Analisis Hasil</h3>
+              <p className="text-xs font-bold text-slate-500">Lihat nilai & statistik kelas</p>
+            </div>
+          </Link>
+
+          <button className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-orange-500 hover:shadow-md transition-all flex flex-col justify-between min-h-[160px] text-left">
+            <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 mb-4 group-hover:scale-110 transition-transform">
+              <Key size={28} weight="fill" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 mb-1">Kunci Jawaban</h3>
+              <p className="text-xs font-bold text-slate-500">Edit kunci & bobot nilai</p>
+            </div>
+          </button>
+
+          <button className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all flex flex-col justify-between min-h-[160px] text-left">
+            <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mb-4 group-hover:scale-110 transition-transform">
+              <FilePdf size={28} weight="fill" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 mb-1">Format LJK</h3>
+              <p className="text-xs font-bold text-slate-500">Unduh master LJK (PDF)</p>
+            </div>
+          </button>
+
+          <Link href="/guru/arsip" className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-slate-800 hover:shadow-md transition-all flex flex-col justify-between min-h-[160px]">
+            <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-600 mb-4 group-hover:scale-110 transition-transform">
+              <Archive size={28} weight="fill" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 mb-1">Dokumen Arsip</h3>
+              <p className="text-xs font-bold text-slate-500">Akses foto bukti koreksi</p>
+            </div>
+          </Link>
+
         </div>
-
       </div>
     </div>
   );
