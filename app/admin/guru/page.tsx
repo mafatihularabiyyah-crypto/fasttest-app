@@ -190,4 +190,4 @@ export default function ManajemenGuruPage() {
       </div>
     </div>
   );
-}
+}   
