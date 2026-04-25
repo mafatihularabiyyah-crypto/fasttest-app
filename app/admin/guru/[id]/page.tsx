@@ -7,7 +7,7 @@ import {
 } from "@phosphor-icons/react";
 
 export default function DetailUjianDashboard() {
-  // Dalam aplikasi nyata, data ini diambil dari Database (Supabase) berdasarkan [id] di URL
+  // FIX: Hapus edge runtime. Data ini diambil dari Database berdasarkan [id] URL.
   const detailUjian = {
     id: "UJN-2026-001",
     nama: "Ujian Akhir Semester: Bahasa Arab",
