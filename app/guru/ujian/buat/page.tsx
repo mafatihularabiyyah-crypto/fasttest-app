@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
@@ -13,7 +13,8 @@ import {
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-export default function LJKGeneratorFinal() {
+// 1. UBAH NAMA KOMPONEN INI DARI LJKGeneratorFinal MENJADI LJKGeneratorContent
+function LJKGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reprintId = searchParams.get('reprint');
@@ -684,5 +685,15 @@ export default function LJKGeneratorFinal() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 2. TAMBAHKAN KODE INI DI BARIS PALING BAWAH FILE:
+export default function UjianBuatPage() {
+  return (
+    // Gunakan Suspense dan berikan fallback UI sederhana saat menunggu URL terbaca
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-bold text-slate-500">Memuat Halaman...</div>}>
+      <LJKGeneratorContent />
+    </Suspense>
   );
 }
