@@ -1,5 +1,5 @@
 "use client";
-   
+
 import Link from "next/link";
 import { 
   ArrowLeft, Scan, ChartBar, Key, FilePdf, Archive, 
@@ -23,7 +23,6 @@ export default function DetailUjianDashboard() {
       
       {/* HEADER DINAMIS (Menyesuaikan Ujian yang Dibuka) */}
       <div className="bg-blue-700 text-white p-6 shadow-md rounded-b-[2.5rem] relative overflow-hidden">
-        {/* Dekorasi Background */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
         
         <div className="max-w-4xl mx-auto relative z-10">
@@ -65,7 +64,6 @@ export default function DetailUjianDashboard() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           
-          {/* MENU 1: MULAI SCAN (Paling Mencolok) */}
           <Link href={`/guru/scan?namaUjian=${encodeURIComponent(detailUjian.nama)}`} 
                 className="col-span-1 md:col-span-2 lg:col-span-1 group relative bg-blue-600 p-6 rounded-3xl shadow-lg shadow-blue-600/30 hover:-translate-y-1 transition-all overflow-hidden flex flex-col justify-between min-h-[160px]">
             <div className="absolute top-0 right-0 p-4 opacity-20 transform group-hover:scale-110 group-hover:rotate-12 transition-transform">
@@ -80,7 +78,6 @@ export default function DetailUjianDashboard() {
             </div>
           </Link>
 
-          {/* MENU 2: HASIL & ANALISIS */}
           <Link href={`/guru/arsip?id=${detailUjian.id}`} 
                 className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-green-500 hover:shadow-md transition-all flex flex-col justify-between min-h-[160px]">
             <div className="w-12 h-12 bg-green-100 rounded-2xl flex items-center justify-center text-green-600 mb-4 group-hover:scale-110 transition-transform">
@@ -92,7 +89,6 @@ export default function DetailUjianDashboard() {
             </div>
           </Link>
 
-          {/* MENU 3: KUNCI JAWABAN */}
           <button className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-orange-500 hover:shadow-md transition-all flex flex-col justify-between min-h-[160px] text-left">
             <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600 mb-4 group-hover:scale-110 transition-transform">
               <Key size={28} weight="fill" />
@@ -103,7 +99,6 @@ export default function DetailUjianDashboard() {
             </div>
           </button>
 
-          {/* MENU 4: DOWNLOAD KERTAS LJK */}
           <button className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all flex flex-col justify-between min-h-[160px] text-left">
             <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mb-4 group-hover:scale-110 transition-transform">
               <FilePdf size={28} weight="fill" />
@@ -114,7 +109,6 @@ export default function DetailUjianDashboard() {
             </div>
           </button>
 
-          {/* MENU 5: DOKUMEN ARSIP */}
           <Link href="/guru/arsip" className="group bg-white p-6 rounded-3xl shadow-sm border border-slate-200 hover:border-slate-800 hover:shadow-md transition-all flex flex-col justify-between min-h-[160px]">
             <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-600 mb-4 group-hover:scale-110 transition-transform">
               <Archive size={28} weight="fill" />
@@ -127,7 +121,6 @@ export default function DetailUjianDashboard() {
 
         </div>
       </div>
-
     </div>
   );
 }
