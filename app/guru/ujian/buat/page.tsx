@@ -52,7 +52,7 @@ function LJKGeneratorContent() {
         }
       });
 
-    fetch('/api/ujian/template')
+    fetch('/api/admin/template')
       .then(res => res.json())
       .then(data => { if (Array.isArray(data)) setTemplateSekolah(data); });
 
@@ -67,10 +67,30 @@ function LJKGeneratorContent() {
         .then(res => res.json())
         .then(data => {
           if (data && data.soal) {
-            setNamaUjian(data.namaUjian + " (REPRINT)");
-            setKelasTujuan(data.kelas.split(",").map((k:string) => k.trim()));
+            setNamaUjian((data.namaUjian || "Ujian") + " (REPRINT)");
+            setKelasTujuan(data.kelas ? data.kelas.split(",").map((k:string) => k.trim()) : []);
             setJumlahSoal(data.soal.length);
             if (data.soal.length > 0 && data.soal[0].opsi) setJumlahPilihan(data.soal[0].opsi.length);
+            
+            // --- KUNCI PERBAIKAN: BONGKAR DESAIN KERTAS ---
+            if (data.struktur_kanvas_json) {
+              try {
+                const str = typeof data.struktur_kanvas_json === 'string' ? JSON.parse(data.struktur_kanvas_json) : data.struktur_kanvas_json;
+                if (str.kolom) setKolom(str.kolom);
+                if (str.kop) setKopSurat(str.kop);
+                if (str.logo) setLogoUrl(str.logo);
+                if (str.identitasList) setIdentitasList(str.identitasList);
+                if (str.modeIdentitas) setModeIdentitas(str.modeIdentitas);
+                if (str.jumlahDigitNIS) setJumlahDigitNIS(str.jumlahDigitNIS);
+                if (str.useKodeUjian !== undefined) setUseKodeUjian(str.useKodeUjian);
+                if (str.jumlahDigitKodeUjian) setJumlahDigitKodeUjian(str.jumlahDigitKodeUjian);
+                if (str.useEsai !== undefined) setUseEsai(str.useEsai);
+                if (str.tinggiEsaiCM) setTinggiEsaiCM(str.tinggiEsaiCM);
+              } catch(e) {
+                console.warn("Gagal membaca struktur kanvas reprint", e);
+              }
+            }
+
             setViewState('editor');
           }
         });
@@ -109,13 +129,41 @@ function LJKGeneratorContent() {
   };
 
   const handleSelectTemplateSekolah = (template: any) => {
+    // 1. Ambil Pengaturan Dasar
     setJumlahSoal(template.jumlah_soal || 40);
-    setJumlahPilihan(template.jumlah_opsi || 5);
-    setTipePilihan("huruf"); 
+    setKolom(template.kolom || 3);
+
+    // 2. Konversi Opsi
+    if (template.opsi === "A-D") { setJumlahPilihan(4); setTipePilihan("huruf"); }
+    else if (template.opsi === "A-E") { setJumlahPilihan(5); setTipePilihan("huruf"); }
+    else if (template.opsi === "B/S" || template.opsi === "Benar / Salah") { setJumlahPilihan(2); setTipePilihan("bs"); }
+
+    // 3. Ekstrak Pengaturan Lanjutan (Dengan Pengecekan Keamanan JSON)
     if (template.struktur_kanvas_json) {
-      if (template.struktur_kanvas_json.kop) setKopSurat(template.struktur_kanvas_json.kop);
-      if (template.struktur_kanvas_json.logo) setLogoUrl(template.struktur_kanvas_json.logo);
+      try {
+        // Jika dari Supabase bentuknya string, ubah paksa jadi Objek. Jika sudah objek, langsung pakai.
+        const str = typeof template.struktur_kanvas_json === 'string' 
+          ? JSON.parse(template.struktur_kanvas_json) 
+          : template.struktur_kanvas_json;
+        
+        if (str.kop) setKopSurat(str.kop);
+        if (str.judul) setNamaUjian(str.judul); 
+        if (str.logo) setLogoUrl(str.logo);
+        if (str.identitasList) setIdentitasList(str.identitasList);
+        
+        if (str.useAnchor !== undefined) setUseAnchor(str.useAnchor);
+        if (str.modeIdentitas) setModeIdentitas(str.modeIdentitas);
+        if (str.jumlahDigitNIS) setJumlahDigitNIS(str.jumlahDigitNIS);
+        if (str.useKodeUjian !== undefined) setUseKodeUjian(str.useKodeUjian);
+        if (str.jumlahDigitKodeUjian) setJumlahDigitKodeUjian(str.jumlahDigitKodeUjian);
+        
+        if (str.useEsai !== undefined) setUseEsai(str.useEsai);
+        if (str.tinggiEsaiCM) setTinggiEsaiCM(str.tinggiEsaiCM);
+      } catch (error) {
+        console.error("Gagal membaca struktur_kanvas_json:", error);
+      }
     }
+    
     setViewState('editor');
   };
 
@@ -156,17 +204,33 @@ function LJKGeneratorContent() {
 
       const generatedToken = useKodeUjian ? Math.floor(Math.random() * Math.pow(10, jumlahDigitKodeUjian)).toString().padStart(jumlahDigitKodeUjian, '0') : `LJK-${Date.now().toString().slice(-4)}`;
 
+      // --- BUNGKUS DESAIN KERTAS ---
+      const payloadStruktur = {
+        kolom: kolom,
+        kop: kopSurat,
+        logo: logoUrl,
+        identitasList: identitasList,
+        useAnchor: useAnchor,
+        modeIdentitas: modeIdentitas,
+        jumlahDigitNIS: jumlahDigitNIS,
+        useKodeUjian: useKodeUjian,
+        jumlahDigitKodeUjian: jumlahDigitKodeUjian,
+        useEsai: useEsai,
+        tinggiEsaiCM: tinggiEsaiCM
+      };
+
       const response = await fetch('/api/exams/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: namaUjian,
-          className: kelasTujuan, 
+          className: kelasTujuan.join(", "), // Gabungkan array jadi string
           teacherName: "Ustadz/Ustadzah", 
           duration: 90,
           token: generatedToken,
           examType: "LJK", 
-          questions: questionsData
+          questions: questionsData,
+          struktur_kanvas_json: payloadStruktur // <--- KIRIM DESAIN KE DATABASE
         })
       });
 
@@ -289,9 +353,11 @@ function LJKGeneratorContent() {
                         <h3 className="font-black text-slate-800 text-sm leading-tight group-hover:text-blue-700">{tpl.nama_template}</h3>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs font-bold text-slate-500">{tpl.jumlah_soal} Soal</p>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{tpl.jumlah_opsi} Opsi</p>
-                      </div>
+  <p className="text-xs font-bold text-slate-500">{tpl.jumlah_soal} Soal</p>
+  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+    {tpl.opsi === 'A-D' ? '4 OPSI' : tpl.opsi === 'A-E' ? '5 OPSI' : tpl.opsi === 'B/S' ? '2 OPSI' : tpl.opsi}
+  </p>
+</div>
                     </div>
                   ))}
                 </div>

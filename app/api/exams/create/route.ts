@@ -1,6 +1,4 @@
 export const runtime = 'edge';
-export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
@@ -8,141 +6,67 @@ import { createClient } from "@/utils/supabase/server";
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
-    
-    // 1. Ambil sesi user yang sedang login (Lebih aman dari sekadar mengirim 'teacherName')
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await req.json();
-    const { title, className, duration, token, examType, questions } = body;
 
-    // 2. Validasi Token Ujian
-    const { data: existingExam } = await supabase
-      .from("Ujian")
-      .select("id")
-      .eq("token", token)
-      .single();
-
-    if (existingExam) {
-      return NextResponse.json({ message: "Token sudah digunakan! Buat token baru." }, { status: 400 });
-    }
-
-    // 3. Ambil profil Guru pengampu dari tabel
-    const { data: guru } = await supabase
-      .from("Guru")
-      .select("id, sekolah_id")
-      .eq("email", user.email)
-      .single();
-
-    if (!guru) {
-      return NextResponse.json({ message: "Profil Guru tidak ditemukan di database." }, { status: 404 });
-    }
-
-    // ==============================================================
-    // KUNCI SINKRONISASI: Tarik semua santri dari BANYAK KELAS sekaligus
-    // ==============================================================
-    // className sekarang adalah Array, contoh: ["1A", "1B", "2A"]
-    const { data: daftarSantri } = await supabase
-      .from("Santri")
-      .select("id")
-      .in("kelas", className) // <-- Ubah dari .eq menjadi .in
-      .eq("status", "Aktif");
-
-    // 4. SIMPAN UJIAN DULU
-    const { data: newExam, error: examError } = await supabase
-      .from("Ujian")
-      .insert({
-        sekolah_id: guru.sekolah_id,
-        guru_id: guru.id,
-        nama_ujian: title,
-        kelas: className.join(", "), // <-- Gabungkan nama kelas jadi string pisah koma
-        tipe: "UAS", 
-        metode: examType,
-        durasi: duration,
-        token: token
-      })
+    // 1. SIMPAN DATA KE TABEL UJIAN (Menyesuaikan PERSIS dengan nama kolom di screenshot)
+    const { data: ujianData, error: ujianError } = await supabase
+      .from('Ujian')
+      .insert([{
+        nama_ujian: body.title,       // Di tabel namanya 'nama_ujian'
+        kelas: body.className,        // Di tabel namanya 'kelas'
+        tipe: body.examType,          // Di tabel namanya 'tipe'
+        token: body.token,            // Di tabel namanya 'token'
+        durasi: body.duration || 90,  // Di tabel namanya 'durasi'
+        metode: 'LJK',                // Terlihat di tabel ada kolom 'metode'
+        
+        struktur_kanvas_json: body.struktur_kanvas_json 
+        
+        // Catatan: guru_id dan sekolah_id dibiarkan kosong agar diisi otomatis oleh database
+      }])
       .select()
       .single();
 
-    if (examError || !newExam) throw examError;
+    if (ujianError) {
+      console.error("Error Simpan Tabel Ujian:", ujianError);
+      throw ujianError;
+    }
 
-    // 5. SIMPAN SEMUA SOAL (Menggunakan ID Ujian yang baru dibuat)
-    const soalPayload = questions.map((q: any, index: number) => ({
-      ujian_id: newExam.id,
-      nomor: index + 1,
-      tipe_soal: q.type,
-      teks_soal: q.text
-    }));
+    const ujianId = ujianData.id;
 
-    const { data: insertedSoal, error: soalError } = await supabase
-      .from("Soal")
-      .insert(soalPayload)
-      .select();
+    // 2. SIMPAN SOAL DAN OPSI JAWABAN
+    if (body.questions && Array.isArray(body.questions)) {
+      for (let i = 0; i < body.questions.length; i++) {
+        const q = body.questions[i];
+        
+        // Simpan Soal
+        const { data: soalData, error: soalError } = await supabase
+          .from('Soal')
+          .insert([{
+            ujian_id: ujianId,
+            pertanyaan: q.text || `Soal LJK No. ${i + 1}`,
+            tipe: q.type || 'pg'
+          }])
+          .select()
+          .single();
 
-    if (soalError || !insertedSoal) throw soalError;
-
-    // 6. SIMPAN SEMUA OPSI JAWABAN (Mencocokkan dengan ID Soal)
-    const opsiPayload: any[] = [];
-    
-    questions.forEach((q: any, qIndex: number) => {
-      // Cari ID soal yang di-generate database berdasarkan nomor soalnya
-      const matchedSoal = insertedSoal.find((s: any) => s.nomor === qIndex + 1);
-
-      if (matchedSoal) {
-        q.options.forEach((opt: any, optIndex: number) => {
-          let optionLabel = "";
-          if (q.type === "bs") optionLabel = optIndex === 0 ? "B" : "S";
-          else if (q.type === "angka14") optionLabel = (optIndex + 1).toString();
-          else optionLabel = String.fromCharCode(65 + optIndex);
-
-          opsiPayload.push({
-            soal_id: matchedSoal.id,
-            label: optionLabel,
-            teks_opsi: opt.text,
+        // Simpan Opsi (A, B, C, D) jika soal berhasil masuk
+        if (!soalError && soalData && q.options) {
+          const opsiPayload = q.options.map((opt: any) => ({
+            soal_id: soalData.id,
+            label: opt.text,
             is_correct: opt.isCorrect,
-            points: opt.points
-          });
-        });
+            poin: opt.points || 1
+          }));
+
+          await supabase.from('Opsi').insert(opsiPayload);
+        }
       }
-    });
-
-    // Eksekusi simpan Opsi (jika ada)
-    if (opsiPayload.length > 0) {
-      const { error: opsiError } = await supabase.from("Opsi").insert(opsiPayload);
-      if (opsiError) throw opsiError;
     }
 
-    // ==============================================================
-    // BUATKAN DAFTAR HADIR (LEMBAR NILAI KOSONG) UNTUK SEMUA SANTRI
-    // ==============================================================
-    if (daftarSantri && daftarSantri.length > 0) {
-      const hasilPayload = daftarSantri.map((santri: any) => ({
-        ujian_id: newExam.id,
-        santri_id: santri.id,
-        benar: 0,
-        salah: 0,
-        kosong: questions.length, // Otomatis menganggap semua soal kosong di awal
-        nilai_murni: 0,
-        answers_json: "[]" // Belum ada jawaban yang masuk
-      }));
-      
-      const { error: hasilError } = await supabase.from("HasilUjian").insert(hasilPayload);
-      if (hasilError) throw hasilError;
-    }
+    return NextResponse.json({ success: true, message: "Ujian berhasil dibuat!" }, { status: 200 });
 
-    // 8. Berhasil!
-    return NextResponse.json(
-      { 
-        message: `Ujian berhasil disimpan dan disinkronkan dengan ${daftarSantri?.length || 0} santri dari kelas ${className}!`, 
-        examId: newExam.id 
-      },
-      { status: 201 }
-    );
-
-  } catch (error) {
-    console.error("Gagal menyimpan ujian:", error);
-    return NextResponse.json({ message: "Terjadi kesalahan internal server." }, { status: 500 });
+  } catch (error: any) {
+    console.error("🔥 ERROR CREATE EXAM:", error.message);
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
