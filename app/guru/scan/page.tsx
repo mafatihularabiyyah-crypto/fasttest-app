@@ -60,7 +60,7 @@ function ScannerContent() {
     return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
   }, []); 
 
-  // --- 2. FUNGSI AI MENDETEKSI SUDUT HITAM LJK ---
+  // --- 2. AI GEOMETRIS: PENDETEKSI KOTAK "BULLS-EYE" ---
   const checkLJKInFrame = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return false;
     const video = videoRef.current;
@@ -72,57 +72,91 @@ function ScannerContent() {
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Cek Cahaya
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    const centerSample = ctx.getImageData(centerX - 50, centerY - 50, 100, 100);
+    const boxWidth = canvas.width * 0.95; 
+    const boxHeight = boxWidth * 1.414; 
+    const startX = (canvas.width - boxWidth) / 2;
+    const startY = (canvas.height - boxHeight) / 2;
+
+    // CEK 1: TENGAH HARUS KERTAS PUTIH
+    const centerSample = ctx.getImageData(canvas.width / 2 - 50, canvas.height / 2 - 50, 100, 100);
     let totalBrightness = 0;
     for (let i = 0; i < centerSample.data.length; i += 4) {
       totalBrightness += (centerSample.data[i] * 0.299) + (centerSample.data[i+1] * 0.587) + (centerSample.data[i+2] * 0.114);
     }
     const avgBrightness = totalBrightness / (centerSample.data.length / 4);
 
-    if (avgBrightness < 60) { setScanFeedback("Pencahayaan kurang 💡"); return false; }
-    if (avgBrightness > 230) { setScanFeedback("Terlalu silau! ☀️"); return false; }
+    if (avgBrightness < 80) { setScanFeedback("Gelap / Bukan Kertas LJK 📝"); return false; }
+    if (avgBrightness > 240) { setScanFeedback("Terlalu silau! ☀️"); return false; }
 
-    const boxWidth = canvas.width * 0.95; 
-    const boxHeight = boxWidth * 1.414; 
-    const startX = (canvas.width - boxWidth) / 2;
-    const startY = (canvas.height - boxHeight) / 2;
+    // KUNCI UTAMA: Logika Topografi Kotak Penanda
+    // Mencari pola: Hitam (luar) -> Putih (tengah) -> Hitam (inti)
+    const anchorSize = boxWidth * 0.15; // Ukuran area pojok yang dipindai
     
-    const anchorSize = boxWidth * 0.25; 
-
-    const isAreaDark = (x: number, y: number, w: number, h: number) => {
+    const isBullseyeAnchor = (x: number, y: number, size: number) => {
       const safeX = Math.max(0, Math.min(x, canvas.width - 1));
       const safeY = Math.max(0, Math.min(y, canvas.height - 1));
-      const safeW = Math.min(w, canvas.width - safeX);
-      const safeH = Math.min(h, canvas.height - safeY);
-      if (safeW <= 0 || safeH <= 0) return false;
+      const safeW = Math.min(size, canvas.width - safeX);
+      const safeH = Math.min(size, canvas.height - safeY);
+      if (safeW < 10 || safeH < 10) return false;
 
       const frame = ctx.getImageData(safeX, safeY, safeW, safeH);
-      let darkPixels = 0;
-      for (let i = 0; i < frame.data.length; i += 4) {
-        const brightness = (frame.data[i] * 0.299) + (frame.data[i+1] * 0.587) + (frame.data[i+2] * 0.114);
-        if (brightness < 130) darkPixels++; // Toleransi warna hitam dilonggarkan
+      const data = frame.data;
+
+      let coreDark = 0, coreTotal = 0;
+      let gapLight = 0, gapTotal = 0;
+      let borderDark = 0, borderTotal = 0;
+
+      for (let py = 0; py < safeH; py++) {
+        for (let px = 0; px < safeW; px++) {
+          const i = (py * safeW + px) * 4;
+          const brightness = (data[i] * 0.299) + (data[i+1] * 0.587) + (data[i+2] * 0.114);
+
+          // Normalisasi koordinat menjadi persentase (0.0 - 1.0)
+          const nx = px / safeW;
+          const ny = py / safeH;
+
+          // Membagi area pojok menjadi 3 ring/lapis
+          const isCore = (nx >= 0.35 && nx <= 0.65) && (ny >= 0.35 && ny <= 0.65);
+          const isInsideGap = (nx >= 0.20 && nx <= 0.80) && (ny >= 0.20 && ny <= 0.80);
+          const isInsideBorder = (nx >= 0.05 && nx <= 0.95) && (ny >= 0.05 && ny <= 0.95);
+
+          if (isCore) {
+            coreTotal++;
+            if (brightness < 110) coreDark++; // Inti harus hitam
+          } else if (isInsideGap) {
+            gapTotal++;
+            if (brightness > 140) gapLight++; // Celah harus putih
+          } else if (isInsideBorder) {
+            borderTotal++;
+            if (brightness < 110) borderDark++; // Garis border harus hitam
+          }
+        }
       }
-      return (darkPixels / (frame.data.length / 4)) > 0.15; // Cukup 15% area hitam sudah dianggap pas
+
+      // Syarat Sah: Tiap lapisan harus memenuhi kriteria minimal 40-50% sesuai perannya
+      const corePass = coreTotal > 0 && (coreDark / coreTotal) > 0.5;
+      const gapPass = gapTotal > 0 && (gapLight / gapTotal) > 0.5;
+      const borderPass = borderTotal > 0 && (borderDark / borderTotal) > 0.4;
+
+      // Jika ketiga syarat pola geometri ini terpenuhi, maka itu FIX kotak LJK Ustadz!
+      return corePass && gapPass && borderPass;
     };
 
-    const topLeft = isAreaDark(startX, startY, anchorSize, anchorSize);
-    const topRight = isAreaDark(startX + boxWidth - anchorSize, startY, anchorSize, anchorSize);
-    const bottomLeft = isAreaDark(startX, startY + boxHeight - anchorSize, anchorSize, anchorSize);
-    const bottomRight = isAreaDark(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize, anchorSize);
+    const topLeft = isBullseyeAnchor(startX, startY, anchorSize);
+    const topRight = isBullseyeAnchor(startX + boxWidth - anchorSize, startY, anchorSize);
+    const bottomLeft = isBullseyeAnchor(startX, startY + boxHeight - anchorSize, anchorSize);
+    const bottomRight = isBullseyeAnchor(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize);
 
     const matchCount = [topLeft, topRight, bottomLeft, bottomRight].filter(Boolean).length;
 
     if (matchCount === 4) {
-      setScanFeedback("Pas! Memotret otomatis... 📸");
+      setScanFeedback("Geometri Terkunci! Memotret... 📸");
       return true;
     } else if (matchCount > 0) {
-      setScanFeedback(`Baru pas ${matchCount} sudut. Paskan 4 sudut kotak 🔲`);
+      setScanFeedback(`Ditemukan ${matchCount} sudut. Paskan ke 4 sudut LJK 🔲`);
       return false;
     } else {
-      setScanFeedback("Arahkan 4 sudut LJK ke kotak bingkai 🔲");
+      setScanFeedback("Arahkan 4 sudut LJK ke bingkai 🔲");
       return false;
     }
   }, []);
@@ -132,24 +166,21 @@ function ScannerContent() {
     let scanInterval: NodeJS.Timeout;
     if (scanState === 'searching') {
       scanInterval = setInterval(() => {
-        const isLJKFound = checkLJKInFrame(); 
-        
-        if (isLJKFound) {
+        if (checkLJKInFrame()) {
           clearInterval(scanInterval);
           setScanState('aligning'); 
           
-          // JEPRET OTOMATIS SANGAT CEPAT (0.4 detik setelah pas)
           setTimeout(() => {
             setScanState('locked'); 
             captureAndProcessOMR(); 
-          }, 400); 
+          }, 350); 
         }
-      }, 300); // Mengecek lebih cepat (tiap 300ms)
+      }, 300); 
     }
     return () => clearInterval(scanInterval);
   }, [scanState, checkLJKInFrame]);
 
-  // --- 4. MESIN OMR ASLI ---
+  // --- 4. MESIN OMR ASLI & MENGGAMBAR HASIL LINGKARAN ---
   const captureAndProcessOMR = () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
@@ -160,9 +191,12 @@ function ScannerContent() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    setCapturedImage(canvas.toDataURL('image/jpeg', 0.8));
 
-    // SIMULASI PROSES MEMBACA BULATAN
+    const boxWidth = canvas.width * 0.95; 
+    const boxHeight = boxWidth * 1.414; 
+    const startX = (canvas.width - boxWidth) / 2;
+    const startY = (canvas.height - boxHeight) / 2;
+
     const jumlahSoal = 20;
     const opsiKeys = ['A', 'B', 'C', 'D', 'E'];
     const kunciJawabanAsli = ['A', 'C', 'B', 'D', 'E', 'A', 'B', 'C', 'D', 'E', 'A', 'B', 'C', 'D', 'E', 'A', 'B', 'C', 'D', 'E']; 
@@ -180,8 +214,35 @@ function ScannerContent() {
       else { status = 'kosong'; jawab = '-'; totalKosong++; }
 
       detailKoreksi.push({ no: i + 1, jawab, kunci, status });
+
+      // GAMBAR LINGKARAN KOREKSI DI ATAS FOTO
+      const col = Math.floor(i / 10);
+      const row = i % 10;
+      const xBase = startX + (boxWidth * 0.15) + (col * (boxWidth * 0.45));
+      const yBase = startY + (boxHeight * 0.35) + (row * (boxHeight * 0.055));
+      const xStep = boxWidth * 0.06;
+      const radius = boxWidth * 0.025;
+
+      const drawCircle = (optIndex: number, color: string) => {
+         if (optIndex < 0) return;
+         ctx.beginPath();
+         ctx.arc(xBase + (optIndex * xStep), yBase, radius, 0, 2 * Math.PI);
+         ctx.lineWidth = 6;
+         ctx.strokeStyle = color;
+         ctx.stroke();
+      };
+
+      const getOptIndex = (label: string) => opsiKeys.indexOf(label);
+
+      if (status === 'benar') {
+         drawCircle(getOptIndex(jawab), '#22c55e'); // Hijau untuk benar
+      } else if (status === 'salah') {
+         if (jawab !== '-') drawCircle(getOptIndex(jawab), '#ef4444'); // Merah untuk jawaban salah
+         drawCircle(getOptIndex(kunci), '#eab308'); // Kuning untuk kunci seharusnya
+      }
     }
 
+    setCapturedImage(canvas.toDataURL('image/jpeg', 0.8));
     const nilaiAkhir = Math.round((totalBenar / jumlahSoal) * 100);
 
     setRealScanResult({
@@ -196,7 +257,6 @@ function ScannerContent() {
       detailJawaban: detailKoreksi
     });
 
-    // EFEK FLASH KAMERA
     setScanState('flashing'); 
     setTimeout(() => setScanState('result'), 200);
   };
@@ -247,11 +307,19 @@ function ScannerContent() {
                 scanState === 'invalid' ? 'scale-95 bg-red-500/10' : ''}
             `}
           >
-            {/* KOTAK SUDUT DIKEMBALIKAN KE BENTUK KOTAK TRANSPARAN (MENTOK PINGGIR & BESAR) */}
-            <div className={`absolute top-0 left-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}></div>
-            <div className={`absolute top-0 right-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}></div>
-            <div className={`absolute bottom-0 left-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}></div>
-            <div className={`absolute bottom-0 right-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}></div>
+            {/* KOTAK SUDUT TRANSPARAN (GAYA BULLS-EYE) */}
+            <div className={`absolute top-0 left-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 flex items-center justify-center ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}>
+              <div className="w-4 h-4 bg-white/70 rounded-sm"></div>
+            </div>
+            <div className={`absolute top-0 right-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 flex items-center justify-center ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}>
+               <div className="w-4 h-4 bg-white/70 rounded-sm"></div>
+            </div>
+            <div className={`absolute bottom-0 left-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 flex items-center justify-center ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}>
+               <div className="w-4 h-4 bg-white/70 rounded-sm"></div>
+            </div>
+            <div className={`absolute bottom-0 right-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 flex items-center justify-center ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}>
+               <div className="w-4 h-4 bg-white/70 rounded-sm"></div>
+            </div>
 
             {scanState === 'searching' && (
               <div className="absolute top-0 left-0 w-full h-[3px] bg-blue-500 shadow-[0_0_15px_4px_rgba(59,130,246,0.9)] animate-[scan_2s_ease-in-out_infinite] pointer-events-none" />
@@ -260,22 +328,24 @@ function ScannerContent() {
             {scanState === 'locked' && (
               <div className="bg-green-600/90 backdrop-blur px-5 py-2.5 rounded-full border border-green-400 flex items-center gap-2 animate-pulse scale-110 transition-transform relative z-20">
                 <Check size={18} weight="bold" className="text-white" />
-                <p className="text-white text-[10px] font-black tracking-widest uppercase">Memotret...</p>
+                <p className="text-white text-[10px] font-black tracking-widest uppercase">Terkunci & Memotret...</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* INTRUKSI DINAMIS MUNCUL DI BAWAH */}
+        {/* INTRUKSI DINAMIS */}
         {(scanState === 'searching' || scanState === 'invalid' || scanState === 'aligning') && (
           <div className="absolute bottom-10 left-0 w-full px-6 flex justify-center z-50 pointer-events-none">
             <div className={`backdrop-blur-md px-6 py-4 rounded-2xl border flex flex-col items-center shadow-2xl transition-colors duration-300 ${
               scanFeedback.includes('Pencahayaan') || scanFeedback.includes('Silau') ? 'bg-amber-900/90 border-amber-500' :
-              scanFeedback.includes('Pas!') ? 'bg-green-900/90 border-green-500 scale-105' : 'bg-black/80 border-white/30'
+              scanFeedback.includes('Gelap') || scanFeedback.includes('Bukan') || scanFeedback.includes('Arahkan') ? 'bg-red-900/90 border-red-500' :
+              scanFeedback.includes('Terkunci') || scanFeedback.includes('Pas') ? 'bg-green-900/90 border-green-500 scale-105' : 'bg-black/80 border-white/30'
             }`}>
               <p className={`text-base font-black uppercase tracking-wider text-center ${
                 scanFeedback.includes('Pencahayaan') || scanFeedback.includes('Silau') ? 'text-amber-400' :
-                scanFeedback.includes('Pas!') ? 'text-green-400 animate-pulse' : 'text-white'
+                scanFeedback.includes('Gelap') || scanFeedback.includes('Bukan') || scanFeedback.includes('Arahkan') ? 'text-red-400' :
+                scanFeedback.includes('Terkunci') || scanFeedback.includes('Pas') ? 'text-green-400 animate-pulse' : 'text-white'
               }`}>
                 {scanFeedback}
               </p>
@@ -328,9 +398,9 @@ function ScannerContent() {
                   </div>
 
                   <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Scan size={14}/> Foto Bukti LJK</p>
-                    <div className="relative w-full aspect-[1/1.414] bg-slate-800 rounded-xl overflow-hidden border border-slate-300">
-                      {capturedImage && <img src={capturedImage} alt="Captured" className="absolute inset-0 w-full h-full object-cover opacity-90" />}
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Scan size={14}/> Foto Bukti Koreksi</p>
+                    <div className="relative w-full aspect-[1/1.414] bg-slate-800 rounded-xl overflow-hidden border border-slate-300 shadow-inner">
+                      {capturedImage && <img src={capturedImage} alt="Captured" className="absolute inset-0 w-full h-full object-cover" />}
                     </div>
                   </div>
                 </div>

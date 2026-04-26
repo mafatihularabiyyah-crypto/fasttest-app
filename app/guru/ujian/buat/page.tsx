@@ -627,14 +627,33 @@ function LJKGeneratorContent() {
               </div>
             </div>
 
-            {useAnchor && (
-              <>
-                <div className="absolute top-[10mm] left-[10mm] w-6 h-6 bg-black"></div>
-                <div className="absolute top-[10mm] right-[10mm] w-6 h-6 bg-black"></div>
-                <div className="absolute bottom-[10mm] left-[10mm] w-6 h-6 bg-black"></div>
-                <div className="absolute bottom-[10mm] right-[10mm] w-6 h-6 bg-black"></div>
-              </>
-            )}
+            {/* --- GANTI BAGIAN LAMA (4 DIV KOTAK HITAM) DENGAN KODE INI --- */}
+{useAnchor && (
+  <>
+    {/* Definisi posisi 4 pojok agar kode lebih bersih */}
+    {[
+      "top-[10mm] left-[10mm]",   // Atas Kiri
+      "top-[10mm] right-[10mm]",  // Atas Kanan
+      "bottom-[10mm] left-[10mm]",// Bawah Kiri
+      "bottom-[10mm] right-[10mm]"// Bawah Kanan
+    ].map((posisi, index) => (
+      <div 
+        key={index} 
+        className={`absolute ${posisi} w-[16mm] h-[16mm] flex items-center justify-center bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 print:shadow-none print:border-black/5`}
+        style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
+      >
+        {/* Pola Target Anchor Modern (Outline Tebal & Dot Tengah) */}
+        <div className="w-full h-full border-[6px] border-black p-1 flex items-center justify-center rounded-xl">
+          <div className="w-4 h-4 bg-black rounded"></div>
+        </div>
+        
+        {/* Sedikit dekorasi garis halus untuk estetika di layar (tidak mengganggu scan) */}
+        <div className="absolute -inset-1 border border-indigo-100 rounded-[20px] opacity-50 print:hidden"></div>
+      </div>
+    ))}
+  </>
+)}
+{/* --- SAMPAI SINI --- */}
 
             <div className="relative z-10 flex flex-col h-full pl-[5mm] pr-[5mm] pt-[2mm]">
               <div className="flex items-center gap-4 pb-3 mb-6 border-b-4 border-black shrink-0">
