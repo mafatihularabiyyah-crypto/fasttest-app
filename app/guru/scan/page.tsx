@@ -89,10 +89,8 @@ function ScannerContent() {
       setScanFeedback("Gelap / Bukan Kertas LJK 📝"); 
       return { isPerfect: false, matchCount: 0 }; 
     }
-    if (avgBrightness > 240) { 
-      setScanFeedback("Terlalu silau! ☀️"); 
-      return { isPerfect: false, matchCount: 0 }; 
-    }
+    
+    // SENSOR SILAU DIHAPUS agar bisa scan dari layar monitor laptop.
 
     const anchorSize = boxWidth * 0.15; 
     
@@ -122,22 +120,25 @@ function ScannerContent() {
           const isInsideGap = (nx >= 0.20 && nx <= 0.80) && (ny >= 0.20 && ny <= 0.80);
           const isInsideBorder = (nx >= 0.05 && nx <= 0.95) && (ny >= 0.05 && ny <= 0.95);
 
+          // TOLERANSI DILONGGARKAN UNTUK LAYAR LAPTOP
+          // Hitam di layar laptop biasanya ada di angka 130-150.
           if (isCore) {
             coreTotal++;
-            if (brightness < 110) coreDark++; 
+            if (brightness < 150) coreDark++; 
           } else if (isInsideGap) {
             gapTotal++;
-            if (brightness > 140) gapLight++; 
+            if (brightness > 120) gapLight++; 
           } else if (isInsideBorder) {
             borderTotal++;
-            if (brightness < 110) borderDark++; 
+            if (brightness < 150) borderDark++; 
           }
         }
       }
 
-      const corePass = coreTotal > 0 && (coreDark / coreTotal) > 0.5;
-      const gapPass = gapTotal > 0 && (gapLight / gapTotal) > 0.5;
-      const borderPass = borderTotal > 0 && (borderDark / borderTotal) > 0.4;
+      // Syarat lulus diturunkan jadi 30% karena silau laptop merusak warna hitam
+      const corePass = coreTotal > 0 && (coreDark / coreTotal) > 0.3;
+      const gapPass = gapTotal > 0 && (gapLight / gapTotal) > 0.4;
+      const borderPass = borderTotal > 0 && (borderDark / borderTotal) > 0.3;
 
       return corePass && gapPass && borderPass;
     };
@@ -397,7 +398,7 @@ function ScannerContent() {
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
           <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
             
-            {/* --- TAMPILAN JIKA GAGAL DETEKSI LJK (DIUBAH MENJADI LEBIH KOMPAK) --- */}
+            {/* --- TAMPILAN JIKA GAGAL DETEKSI LJK --- */}
             {hasil.error ? (
               <div className="p-6 flex flex-col items-center text-center">
                 <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4 border-4 border-red-100 shadow-inner shrink-0">
@@ -406,7 +407,6 @@ function ScannerContent() {
                 <h3 className="font-black text-lg text-slate-800 mb-1 uppercase tracking-wide">Koreksi Ditolak</h3>
                 <p className="text-[11px] font-semibold text-slate-500 mb-4 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 w-full">{hasil.error}</p>
                 
-                {/* Gambar Error dipendekkan agar tombol Coba Koreksi tidak tenggelam */}
                 <div className="relative w-full h-32 bg-slate-800 rounded-2xl overflow-hidden border border-slate-200 mb-5 opacity-60 grayscale shadow-inner shrink-0">
                   {capturedImage && <img src={capturedImage} alt="Captured Error" className="absolute inset-0 w-full h-full object-cover" />}
                   <div className="absolute inset-0 flex items-center justify-center bg-red-900/30">
@@ -414,7 +414,6 @@ function ScannerContent() {
                   </div>
                 </div>
 
-                {/* TOMBOL KOREKSI LAGI YANG MUDAH DIJANGKAU */}
                 <button onClick={handleScanUlang} className="w-full py-3.5 bg-blue-600 text-white font-black rounded-xl text-xs uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 shrink-0">
                   <ArrowCounterClockwise size={18} weight="bold"/> Coba Koreksi Lagi
                 </button>
