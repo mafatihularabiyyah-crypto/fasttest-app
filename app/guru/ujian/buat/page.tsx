@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, Suspense } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
   ArrowLeft, DownloadSimple, FilePdf, SlidersHorizontal, 
@@ -13,13 +12,12 @@ import {
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-// 1. UBAH NAMA KOMPONEN INI DARI LJKGeneratorFinal MENJADI LJKGeneratorContent
 function LJKGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reprintId = searchParams.get('reprint');
 
-  const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJTSURBVHgB7d0xbhNREIDh90IsiYIuDR0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDR0XoKInpKQEDX0XoKKf/R9fA/E705cAAAAASUVORK5CYII=";
+  const LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAJTSURBVHgB7d0xbhNREIDh90IsiYIuDR0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDV0XoKInpKQEDR0XoKInpKQEDX0XoKKf/R9fA/E705cAAAAASUVORK5CYII=";
 
   const [viewState, setViewState] = useState<'select' | 'editor'>('select');
   const ljkRef = useRef<HTMLDivElement>(null);
@@ -129,19 +127,15 @@ function LJKGeneratorContent() {
   };
 
   const handleSelectTemplateSekolah = (template: any) => {
-    // 1. Ambil Pengaturan Dasar
     setJumlahSoal(template.jumlah_soal || 40);
     setKolom(template.kolom || 3);
 
-    // 2. Konversi Opsi
     if (template.opsi === "A-D") { setJumlahPilihan(4); setTipePilihan("huruf"); }
     else if (template.opsi === "A-E") { setJumlahPilihan(5); setTipePilihan("huruf"); }
     else if (template.opsi === "B/S" || template.opsi === "Benar / Salah") { setJumlahPilihan(2); setTipePilihan("bs"); }
 
-    // 3. Ekstrak Pengaturan Lanjutan (Dengan Pengecekan Keamanan JSON)
     if (template.struktur_kanvas_json) {
       try {
-        // Jika dari Supabase bentuknya string, ubah paksa jadi Objek. Jika sudah objek, langsung pakai.
         const str = typeof template.struktur_kanvas_json === 'string' 
           ? JSON.parse(template.struktur_kanvas_json) 
           : template.struktur_kanvas_json;
@@ -204,7 +198,7 @@ function LJKGeneratorContent() {
 
       const generatedToken = useKodeUjian ? Math.floor(Math.random() * Math.pow(10, jumlahDigitKodeUjian)).toString().padStart(jumlahDigitKodeUjian, '0') : `LJK-${Date.now().toString().slice(-4)}`;
 
-      // --- BUNGKUS DESAIN KERTAS ---
+      // --- INI YANG BIKIN FORMAT KERTAS TERSIMPAN ---
       const payloadStruktur = {
         kolom: kolom,
         kop: kopSurat,
@@ -224,13 +218,13 @@ function LJKGeneratorContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: namaUjian,
-          className: kelasTujuan.join(", "), // Gabungkan array jadi string
+          className: kelasTujuan.join(", "),
           teacherName: "Ustadz/Ustadzah", 
           duration: 90,
           token: generatedToken,
           examType: "LJK", 
           questions: questionsData,
-          struktur_kanvas_json: payloadStruktur // <--- KIRIM DESAIN KE DATABASE
+          struktur_kanvas_json: payloadStruktur
         })
       });
 
@@ -289,9 +283,10 @@ function LJKGeneratorContent() {
         </div>
 
         <div className="w-full max-w-[85rem] flex justify-between items-center relative z-10 mb-8 mt-2">
-          <Link href="/guru" className="flex items-center gap-2 p-2.5 bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md rounded-2xl text-white transition-all cursor-pointer">
+          {/* TOMBOL KEMBALI MENGGUNAKAN ROUTER.BACK() */}
+          <button onClick={() => router.back()} className="flex items-center gap-2 p-2.5 bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md rounded-2xl text-white transition-all cursor-pointer">
             <ArrowLeft size={20} weight="bold" /> <span className="text-xs font-bold uppercase tracking-widest hidden sm:block pr-2">Kembali</span>
-          </Link>
+          </button>
           <div className="bg-white/10 border border-white/20 backdrop-blur-md px-4 py-2 rounded-xl text-white flex items-center gap-2 shadow-lg">
             <MagicWand size={18} weight="fill" className="text-yellow-400" />
             <span className="text-[10px] font-black uppercase tracking-widest">LJK Studio v2.0</span>
@@ -432,7 +427,13 @@ function LJKGeneratorContent() {
         {/* Sticky Header Studio */}
         <div className="px-6 py-5 bg-white border-b border-slate-100 sticky top-0 z-20 flex justify-between items-center bg-opacity-90 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            <button onClick={() => setViewState('select')} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all"><ArrowLeft size={18} weight="bold" /></button>
+            {/* TOMBOL KEMBALI MENGGUNAKAN LOGIKA REPRINTID */}
+            <button 
+              onClick={() => reprintId ? router.back() : setViewState('select')} 
+              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all cursor-pointer"
+            >
+              <ArrowLeft size={18} weight="bold" />
+            </button>
             <div>
               <h1 className="text-lg font-black tracking-tight text-slate-800 leading-none">LJK Studio</h1>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Editor Kertas Pintar</p>
@@ -711,9 +712,7 @@ function LJKGeneratorContent() {
         if (nomorSoal > jumlahSoal) return <div key={nomorSoal} className="py-0.5 opacity-0 h-[22px]"></div>;
 
         return (
-          // SAYA MENGUBAH BAGIAN INI: Menghapus items-center, menggantinya dengan items-start
           <div key={nomorSoal} className="flex items-start gap-2 py-0.5 border-b border-[#eeeeee]">
-            {/* Nomor soal saya beri margin-top (mt-[3px]) agar posisinya turun sejajar dengan lingkaran */}
             <span className="w-6 text-right font-black text-sm shrink-0 mt-[3px] leading-none">{nomorSoal}.</span>
             <div className="flex gap-1.5">
               {Array.from({ length: jumlahPilihan }).map((_, optIdx) => (
@@ -754,10 +753,8 @@ function LJKGeneratorContent() {
   );
 }
 
-// 2. TAMBAHKAN KODE INI DI BARIS PALING BAWAH FILE:
 export default function UjianBuatPage() {
   return (
-    // Gunakan Suspense dan berikan fallback UI sederhana saat menunggu URL terbaca
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center font-bold text-slate-500">Memuat Halaman...</div>}>
       <LJKGeneratorContent />
     </Suspense>
