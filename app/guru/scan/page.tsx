@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { 
   ArrowLeft, Lightning, Warning, Check, X, ArrowCounterClockwise, 
-  FloppyDisk, Scan, CheckCircle, ChartBar, Trash
+  FloppyDisk, Scan, CheckCircle, ChartBar, Trash, Camera
 } from "@phosphor-icons/react";
 
 export const dynamic = "force-dynamic";
@@ -15,15 +15,16 @@ type ScanState = 'searching' | 'aligning' | 'locked' | 'flashing' | 'result' | '
 type ResultTab = 'ringkasan' | 'detail';
 
 interface HasilKoreksi {
-  namaUjianTerdeteksi: string;
-  nama: string;
-  nis: string;
-  kelas: string;
-  nilai: number;
-  benar: number;
-  salah: number;
-  kosong: number;
-  detailJawaban: any[];
+  error?: string; 
+  namaUjianTerdeteksi?: string;
+  nama?: string;
+  nis?: string;
+  kelas?: string;
+  nilai?: number;
+  benar?: number;
+  salah?: number;
+  kosong?: number;
+  detailJawaban?: any[];
 }
 
 function ScannerContent() {
@@ -62,11 +63,11 @@ function ScannerContent() {
 
   // --- 2. AI GEOMETRIS: PENDETEKSI KOTAK "BULLS-EYE" ---
   const checkLJKInFrame = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return false;
+    if (!videoRef.current || !canvasRef.current) return { isPerfect: false, matchCount: 0 };
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx || video.videoWidth === 0) return false;
+    if (!ctx || video.videoWidth === 0) return { isPerfect: false, matchCount: 0 };
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -77,7 +78,6 @@ function ScannerContent() {
     const startX = (canvas.width - boxWidth) / 2;
     const startY = (canvas.height - boxHeight) / 2;
 
-    // CEK 1: TENGAH HARUS KERTAS PUTIH / TERANG
     const centerSample = ctx.getImageData(canvas.width / 2 - 50, canvas.height / 2 - 50, 100, 100);
     let totalBrightness = 0;
     for (let i = 0; i < centerSample.data.length; i += 4) {
@@ -85,11 +85,15 @@ function ScannerContent() {
     }
     const avgBrightness = totalBrightness / (centerSample.data.length / 4);
 
-    // PENYESUAIAN LAYAR LAPTOP: Batas atas silau dinaikkan dari 240 ke 253 (hampir mentok putih murni)
-    if (avgBrightness < 60) { setScanFeedback("Gelap / Bukan Kertas LJK 📝"); return false; }
-    if (avgBrightness > 253) { setScanFeedback("Terlalu silau! ☀️"); return false; }
+    if (avgBrightness < 80) { 
+      setScanFeedback("Gelap / Bukan Kertas LJK 📝"); 
+      return { isPerfect: false, matchCount: 0 }; 
+    }
+    if (avgBrightness > 240) { 
+      setScanFeedback("Terlalu silau! ☀️"); 
+      return { isPerfect: false, matchCount: 0 }; 
+    }
 
-    // KUNCI UTAMA: Logika Topografi Kotak Penanda
     const anchorSize = boxWidth * 0.15; 
     
     const isBullseyeAnchor = (x: number, y: number, size: number) => {
@@ -118,25 +122,22 @@ function ScannerContent() {
           const isInsideGap = (nx >= 0.20 && nx <= 0.80) && (ny >= 0.20 && ny <= 0.80);
           const isInsideBorder = (nx >= 0.05 && nx <= 0.95) && (ny >= 0.05 && ny <= 0.95);
 
-          // PENYESUAIAN LAYAR LAPTOP: Batas kontras dilonggarkan menjadi 130
-          // (Karena warna hitam di layar laptop sering memantulkan cahaya)
           if (isCore) {
             coreTotal++;
-            if (brightness < 130) coreDark++; 
+            if (brightness < 110) coreDark++; 
           } else if (isInsideGap) {
             gapTotal++;
-            if (brightness > 130) gapLight++; 
+            if (brightness > 140) gapLight++; 
           } else if (isInsideBorder) {
             borderTotal++;
-            if (brightness < 130) borderDark++; 
+            if (brightness < 110) borderDark++; 
           }
         }
       }
 
-      // Syarat Sah diturunkan sedikit (menjadi 40% dan 30%) untuk mengakomodasi cahaya layar
-      const corePass = coreTotal > 0 && (coreDark / coreTotal) > 0.4;
-      const gapPass = gapTotal > 0 && (gapLight / gapTotal) > 0.4;
-      const borderPass = borderTotal > 0 && (borderDark / borderTotal) > 0.3;
+      const corePass = coreTotal > 0 && (coreDark / coreTotal) > 0.5;
+      const gapPass = gapTotal > 0 && (gapLight / gapTotal) > 0.5;
+      const borderPass = borderTotal > 0 && (borderDark / borderTotal) > 0.4;
 
       return corePass && gapPass && borderPass;
     };
@@ -147,17 +148,18 @@ function ScannerContent() {
     const bottomRight = isBullseyeAnchor(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize);
 
     const matchCount = [topLeft, topRight, bottomLeft, bottomRight].filter(Boolean).length;
+    let isPerfect = false;
 
     if (matchCount === 4) {
       setScanFeedback("Geometri Terkunci! Memotret... 📸");
-      return true;
+      isPerfect = true;
     } else if (matchCount > 0) {
-      setScanFeedback(`Ditemukan ${matchCount} sudut. Paskan ke 4 sudut LJK 🔲`);
-      return false;
+      setScanFeedback(`Ditemukan ${matchCount} sudut LJK. Paskan bingkai 🔲`);
     } else {
       setScanFeedback("Arahkan 4 sudut LJK ke bingkai 🔲");
-      return false;
     }
+
+    return { isPerfect, matchCount };
   }, []);
 
   // --- 3. LOOPING SCANNER & AUTO FOTO CEPAT ---
@@ -165,13 +167,13 @@ function ScannerContent() {
     let scanInterval: NodeJS.Timeout;
     if (scanState === 'searching') {
       scanInterval = setInterval(() => {
-        if (checkLJKInFrame()) {
+        const { isPerfect } = checkLJKInFrame();
+        if (isPerfect) {
           clearInterval(scanInterval);
           setScanState('aligning'); 
-          
           setTimeout(() => {
             setScanState('locked'); 
-            captureAndProcessOMR(); 
+            captureAndProcessOMR(true); 
           }, 350); 
         }
       }, 300); 
@@ -179,8 +181,18 @@ function ScannerContent() {
     return () => clearInterval(scanInterval);
   }, [scanState, checkLJKInFrame]);
 
+  // FUNGSI JEPRET MANUAL
+  const executeCapture = () => {
+    const { matchCount } = checkLJKInFrame(); 
+    setScanState('locked'); 
+    setTimeout(() => {
+      const isValidLJK = matchCount >= 2; 
+      captureAndProcessOMR(isValidLJK); 
+    }, 200); 
+  };
+
   // --- 4. MESIN OMR ASLI & MENGGAMBAR HASIL LINGKARAN ---
-  const captureAndProcessOMR = () => {
+  const captureAndProcessOMR = (isValidLJK: boolean) => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -190,6 +202,17 @@ function ScannerContent() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    setCapturedImage(canvas.toDataURL('image/jpeg', 0.8));
+
+    if (!isValidLJK) {
+      setRealScanResult({
+        error: "Gagal mendeteksi pola kotak sudut LJK. Pastikan Anda memfoto kertas LJK yang benar, bukan benda lain."
+      });
+      setScanState('flashing'); 
+      setTimeout(() => setScanState('result'), 200);
+      return;
+    }
 
     const boxWidth = canvas.width * 0.95; 
     const boxHeight = boxWidth * 1.414; 
@@ -214,7 +237,6 @@ function ScannerContent() {
 
       detailKoreksi.push({ no: i + 1, jawab, kunci, status });
 
-      // GAMBAR LINGKARAN KOREKSI DI ATAS FOTO
       const col = Math.floor(i / 10);
       const row = i % 10;
       const xBase = startX + (boxWidth * 0.15) + (col * (boxWidth * 0.45));
@@ -234,10 +256,10 @@ function ScannerContent() {
       const getOptIndex = (label: string) => opsiKeys.indexOf(label);
 
       if (status === 'benar') {
-         drawCircle(getOptIndex(jawab), '#22c55e'); // Hijau untuk benar
+         drawCircle(getOptIndex(jawab), '#22c55e'); 
       } else if (status === 'salah') {
-         if (jawab !== '-') drawCircle(getOptIndex(jawab), '#ef4444'); // Merah untuk jawaban salah
-         drawCircle(getOptIndex(kunci), '#eab308'); // Kuning untuk kunci seharusnya
+         if (jawab !== '-') drawCircle(getOptIndex(jawab), '#ef4444'); 
+         drawCircle(getOptIndex(kunci), '#eab308'); 
       }
     }
 
@@ -262,7 +284,14 @@ function ScannerContent() {
 
   const handleScanUlang = () => {
     setCapturedImage(null);
-    setScanFeedback("Mencari kertas LJK...");
+    setScanFeedback("Mencari kertas LJK selanjutnya...");
+    setScanState('searching');
+    setResultTab('ringkasan');
+  };
+
+  const handleSimpanDanLanjut = () => {
+    setCapturedImage(null);
+    setScanFeedback("Tersimpan! Memindai LJK berikutnya...");
     setScanState('searching');
     setResultTab('ringkasan');
   };
@@ -276,9 +305,9 @@ function ScannerContent() {
       {/* LAYER 1: KAMERA & PANDUAN SCANNER */}
       <div className="absolute inset-0 z-10">
         <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-start z-50 bg-gradient-to-b from-black/90 via-black/40 to-transparent">
-          <Link href="/guru/arsip" className="flex items-center gap-2 px-4 py-2.5 bg-black/40 hover:bg-black/70 border border-white/20 rounded-full text-white backdrop-blur-md transition-all shadow-lg">
+          <Link href="/guru" className="flex items-center gap-2 px-4 py-2.5 bg-black/40 hover:bg-black/70 border border-white/20 rounded-full text-white backdrop-blur-md transition-all shadow-lg">
             <ArrowLeft size={20} weight="bold" />
-            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Batal</span>
+            <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">Dashboard</span>
           </Link>
 
           <div className="flex flex-col items-center">
@@ -306,7 +335,6 @@ function ScannerContent() {
                 scanState === 'invalid' ? 'scale-95 bg-red-500/10' : ''}
             `}
           >
-            {/* KOTAK SUDUT TRANSPARAN (GAYA BULLS-EYE) */}
             <div className={`absolute top-0 left-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 flex items-center justify-center ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}>
               <div className="w-4 h-4 bg-white/70 rounded-sm"></div>
             </div>
@@ -333,15 +361,16 @@ function ScannerContent() {
           </div>
         </div>
 
-        {/* INTRUKSI DINAMIS */}
+        {/* INTRUKSI DINAMIS & TOMBOL MANUAL */}
         {(scanState === 'searching' || scanState === 'invalid' || scanState === 'aligning') && (
-          <div className="absolute bottom-10 left-0 w-full px-6 flex justify-center z-50 pointer-events-none">
-            <div className={`backdrop-blur-md px-6 py-4 rounded-2xl border flex flex-col items-center shadow-2xl transition-colors duration-300 ${
+          <div className="absolute bottom-10 left-0 w-full px-6 flex flex-col items-center z-50">
+            
+            <div className={`backdrop-blur-md px-6 py-3 rounded-2xl border flex flex-col items-center shadow-2xl transition-colors duration-300 pointer-events-none mb-4 ${
               scanFeedback.includes('Pencahayaan') || scanFeedback.includes('Silau') ? 'bg-amber-900/90 border-amber-500' :
               scanFeedback.includes('Gelap') || scanFeedback.includes('Bukan') || scanFeedback.includes('Arahkan') ? 'bg-red-900/90 border-red-500' :
               scanFeedback.includes('Terkunci') || scanFeedback.includes('Pas') ? 'bg-green-900/90 border-green-500 scale-105' : 'bg-black/80 border-white/30'
             }`}>
-              <p className={`text-base font-black uppercase tracking-wider text-center ${
+              <p className={`text-sm font-black uppercase tracking-wider text-center ${
                 scanFeedback.includes('Pencahayaan') || scanFeedback.includes('Silau') ? 'text-amber-400' :
                 scanFeedback.includes('Gelap') || scanFeedback.includes('Bukan') || scanFeedback.includes('Arahkan') ? 'text-red-400' :
                 scanFeedback.includes('Terkunci') || scanFeedback.includes('Pas') ? 'text-green-400 animate-pulse' : 'text-white'
@@ -349,6 +378,14 @@ function ScannerContent() {
                 {scanFeedback}
               </p>
             </div>
+
+            <button 
+              onClick={executeCapture}
+              className="flex items-center gap-2 px-8 py-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-[0_0_20px_rgba(37,99,235,0.5)] transition-all border-2 border-blue-400"
+            >
+              <Camera size={24} weight="fill" /> Jepret Manual
+            </button>
+
           </div>
         )}
       </div>
@@ -360,107 +397,130 @@ function ScannerContent() {
         <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
           <div className="bg-white w-full max-w-sm rounded-[2rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
             
-            <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center shrink-0">
-              <h2 className="font-black text-slate-800 text-sm uppercase tracking-widest flex items-center gap-2">
-                <Check size={20} className="text-green-500 bg-green-100 rounded-full p-1" weight="bold" /> Koreksi Selesai
-              </h2>
-              <button onClick={handleScanUlang} className="p-1.5 bg-slate-200 text-slate-500 rounded-full hover:bg-slate-300"><X size={16} weight="bold" /></button>
-            </div>
-
-            <div className="flex bg-slate-100 p-1 rounded-xl mx-5 mt-4 shrink-0">
-              <button onClick={() => setResultTab('ringkasan')} className={`flex-1 text-xs font-bold py-2 rounded-lg transition-all ${resultTab === 'ringkasan' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}>Ringkasan</button>
-              <button onClick={() => setResultTab('detail')} className={`flex-1 text-xs font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${resultTab === 'detail' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}>
-                <ChartBar size={16} weight="bold"/> Rincian
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto max-h-[55vh] custom-scrollbar space-y-4">
-              {resultTab === 'ringkasan' ? (
-                <div className="space-y-4 animate-in fade-in">
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-3">
-                    <CheckCircle size={20} weight="fill" className="text-blue-600 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Koreksi OMR</p>
-                      <p className="text-xs font-bold text-blue-600 leading-tight">Tersimpan ke folder:<br/>{hasil.namaUjianTerdeteksi}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-4 items-center">
-                    <div className="flex-1">
-                      <p className="font-black text-slate-800 text-sm leading-tight uppercase">{hasil.nama}</p>
-                      <p className="text-[10px] font-bold text-slate-500 mt-1">NIS: {hasil.nis} | KELAS: {hasil.kelas}</p>
-                    </div>
-                    <div className="w-24 bg-blue-600 rounded-2xl p-2 flex flex-col items-center justify-center text-white shadow-lg shrink-0">
-                      <span className="text-[9px] font-black uppercase">Skor Akhir</span>
-                      <span className="text-3xl font-black">{hasil.nilai}</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Scan size={14}/> Foto Bukti Koreksi</p>
-                    <div className="relative w-full aspect-[1/1.414] bg-slate-800 rounded-xl overflow-hidden border border-slate-300 shadow-inner">
-                      {capturedImage && <img src={capturedImage} alt="Captured" className="absolute inset-0 w-full h-full object-cover" />}
-                    </div>
+            {/* --- TAMPILAN JIKA GAGAL DETEKSI LJK (DIUBAH MENJADI LEBIH KOMPAK) --- */}
+            {hasil.error ? (
+              <div className="p-6 flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4 border-4 border-red-100 shadow-inner shrink-0">
+                  <X size={32} weight="bold" />
+                </div>
+                <h3 className="font-black text-lg text-slate-800 mb-1 uppercase tracking-wide">Koreksi Ditolak</h3>
+                <p className="text-[11px] font-semibold text-slate-500 mb-4 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 w-full">{hasil.error}</p>
+                
+                {/* Gambar Error dipendekkan agar tombol Coba Koreksi tidak tenggelam */}
+                <div className="relative w-full h-32 bg-slate-800 rounded-2xl overflow-hidden border border-slate-200 mb-5 opacity-60 grayscale shadow-inner shrink-0">
+                  {capturedImage && <img src={capturedImage} alt="Captured Error" className="absolute inset-0 w-full h-full object-cover" />}
+                  <div className="absolute inset-0 flex items-center justify-center bg-red-900/30">
+                    <span className="text-white text-[10px] font-black uppercase tracking-widest bg-black/50 px-3 py-1 rounded-full backdrop-blur-sm">Bukan LJK</span>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-green-50 p-2.5 rounded-xl border border-green-200 flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-black text-green-700 uppercase tracking-widest">Benar</span>
-                      <span className="text-2xl font-black text-green-600">{hasil.benar}</span>
-                    </div>
-                    <div className="bg-red-50 p-2.5 rounded-xl border border-red-200 flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-black text-red-700 uppercase tracking-widest">Salah</span>
-                      <span className="text-2xl font-black text-red-600">{hasil.salah}</span>
-                    </div>
-                    <div className="bg-slate-100 p-2.5 rounded-xl border border-slate-200 flex flex-col items-center justify-center">
-                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Kosong</span>
-                      <span className="text-2xl font-black text-slate-600">{hasil.kosong}</span>
-                    </div>
-                  </div>
 
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-2">Rincian Tiap Nomor</p>
-                    <div className="grid grid-cols-5 gap-2">
-                      {hasil.detailJawaban.map(item => (
-                        <div key={item.no} className={`flex flex-col items-center p-1.5 rounded-lg border shadow-sm ${
-                          item.status === 'benar' ? 'bg-green-50 border-green-200' : 
-                          item.status === 'salah' ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'
-                        }`}>
-                          <span className="text-[9px] font-bold text-slate-400 mb-0.5">{item.no}</span>
-                          <span className={`text-sm font-black ${
-                            item.status === 'benar' ? 'text-green-600' : 
-                            item.status === 'salah' ? 'text-red-600' : 'text-slate-400'
-                          }`}>
-                            {item.jawab}
-                          </span>
-                          <div className={`mt-0.5 pt-0.5 border-t w-full text-center ${item.status === 'benar' ? 'border-transparent' : item.status === 'salah' ? 'border-red-200' : 'border-slate-200'}`}>
-                            <span className={`text-[8px] font-black ${item.status === 'benar' ? 'text-transparent' : 'text-green-600'}`}>
-                              {item.status !== 'benar' ? `KN: ${item.kunci}` : '-'}
-                            </span>
-                          </div>
+                {/* TOMBOL KOREKSI LAGI YANG MUDAH DIJANGKAU */}
+                <button onClick={handleScanUlang} className="w-full py-3.5 bg-blue-600 text-white font-black rounded-xl text-xs uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 shrink-0">
+                  <ArrowCounterClockwise size={18} weight="bold"/> Coba Koreksi Lagi
+                </button>
+              </div>
+            ) : (
+              // --- TAMPILAN JIKA BERHASIL (LJK VALID) ---
+              <>
+                <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center shrink-0">
+                  <h2 className="font-black text-slate-800 text-sm uppercase tracking-widest flex items-center gap-2">
+                    <Check size={20} className="text-green-500 bg-green-100 rounded-full p-1" weight="bold" /> Koreksi Selesai
+                  </h2>
+                  <button onClick={handleScanUlang} className="p-1.5 bg-slate-200 text-slate-500 rounded-full hover:bg-slate-300"><X size={16} weight="bold" /></button>
+                </div>
+
+                <div className="flex bg-slate-100 p-1 rounded-xl mx-5 mt-4 shrink-0">
+                  <button onClick={() => setResultTab('ringkasan')} className={`flex-1 text-xs font-bold py-2 rounded-lg transition-all ${resultTab === 'ringkasan' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}>Ringkasan</button>
+                  <button onClick={() => setResultTab('detail')} className={`flex-1 text-xs font-bold py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${resultTab === 'detail' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}>
+                    <ChartBar size={16} weight="bold"/> Rincian
+                  </button>
+                </div>
+
+                <div className="p-5 overflow-y-auto max-h-[55vh] custom-scrollbar space-y-4">
+                  {resultTab === 'ringkasan' ? (
+                    <div className="space-y-4 animate-in fade-in">
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-start gap-3">
+                        <CheckCircle size={20} weight="fill" className="text-blue-600 mt-0.5" />
+                        <div>
+                          <p className="text-[10px] font-black text-blue-800 uppercase tracking-widest">Koreksi OMR</p>
+                          <p className="text-xs font-bold text-blue-600 leading-tight">Tersimpan ke folder:<br/>{hasil.namaUjianTerdeteksi}</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+                      </div>
 
-            <div className="p-4 bg-white border-t border-slate-100 flex gap-2 shrink-0">
-              <button onClick={handleScanUlang} className="px-4 py-3.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors flex items-center justify-center" title="Hapus">
-                <Trash size={20} weight="bold" />
-              </button>
-              
-              <button onClick={handleScanUlang} className="flex-1 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors flex items-center justify-center gap-2">
-                <ArrowCounterClockwise size={16} weight="bold"/> Ulangi
-              </button>
-              
-              <button onClick={handleScanUlang} className="flex-[1.5] py-3.5 bg-blue-600 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                <FloppyDisk size={16} weight="fill"/> Simpan Nilai
-              </button>
-            </div>
+                      <div className="flex gap-4 items-center">
+                        <div className="flex-1">
+                          <p className="font-black text-slate-800 text-sm leading-tight uppercase">{hasil.nama}</p>
+                          <p className="text-[10px] font-bold text-slate-500 mt-1">NIS: {hasil.nis} | KELAS: {hasil.kelas}</p>
+                        </div>
+                        <div className="w-24 bg-blue-600 rounded-2xl p-2 flex flex-col items-center justify-center text-white shadow-lg shrink-0">
+                          <span className="text-[9px] font-black uppercase">Skor Akhir</span>
+                          <span className="text-3xl font-black">{hasil.nilai}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1"><Scan size={14}/> Foto Bukti Koreksi</p>
+                        <div className="relative w-full aspect-[1/1.414] bg-slate-800 rounded-xl overflow-hidden border border-slate-300 shadow-inner">
+                          {capturedImage && <img src={capturedImage} alt="Captured" className="absolute inset-0 w-full h-full object-cover" />}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-green-50 p-2.5 rounded-xl border border-green-200 flex flex-col items-center justify-center">
+                          <span className="text-[9px] font-black text-green-700 uppercase tracking-widest">Benar</span>
+                          <span className="text-2xl font-black text-green-600">{hasil.benar}</span>
+                        </div>
+                        <div className="bg-red-50 p-2.5 rounded-xl border border-red-200 flex flex-col items-center justify-center">
+                          <span className="text-[9px] font-black text-red-700 uppercase tracking-widest">Salah</span>
+                          <span className="text-2xl font-black text-red-600">{hasil.salah}</span>
+                        </div>
+                        <div className="bg-slate-100 p-2.5 rounded-xl border border-slate-200 flex flex-col items-center justify-center">
+                          <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Kosong</span>
+                          <span className="text-2xl font-black text-slate-600">{hasil.kosong}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-slate-200 pb-2">Rincian Tiap Nomor</p>
+                        <div className="grid grid-cols-5 gap-2">
+                          {hasil.detailJawaban?.map(item => (
+                            <div key={item.no} className={`flex flex-col items-center p-1.5 rounded-lg border shadow-sm ${
+                              item.status === 'benar' ? 'bg-green-50 border-green-200' : 
+                              item.status === 'salah' ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-200'
+                            }`}>
+                              <span className="text-[9px] font-bold text-slate-400 mb-0.5">{item.no}</span>
+                              <span className={`text-sm font-black ${
+                                item.status === 'benar' ? 'text-green-600' : 
+                                item.status === 'salah' ? 'text-red-600' : 'text-slate-400'
+                              }`}>
+                                {item.jawab}
+                              </span>
+                              <div className={`mt-0.5 pt-0.5 border-t w-full text-center ${item.status === 'benar' ? 'border-transparent' : item.status === 'salah' ? 'border-red-200' : 'border-slate-200'}`}>
+                                <span className={`text-[8px] font-black ${item.status === 'benar' ? 'text-transparent' : 'text-green-600'}`}>
+                                  {item.status !== 'benar' ? `KN: ${item.kunci}` : '-'}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 bg-white border-t border-slate-100 flex gap-2 shrink-0">
+                  <button onClick={handleScanUlang} className="px-5 py-3.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs uppercase tracking-widest hover:bg-slate-200 transition-colors flex items-center justify-center gap-2" title="Batal & Ulangi">
+                    <Trash size={18} weight="bold" /> Batal
+                  </button>
+                  
+                  <button onClick={handleSimpanDanLanjut} className="flex-1 py-3.5 bg-emerald-600 text-white font-black rounded-xl text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/30 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2">
+                    <FloppyDisk size={18} weight="fill"/> Simpan & Koreksi Lagi
+                  </button>
+                </div>
+              </>
+            )}
 
           </div>
         </div>
