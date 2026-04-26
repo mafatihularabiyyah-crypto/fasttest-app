@@ -77,7 +77,7 @@ function ScannerContent() {
     const startX = (canvas.width - boxWidth) / 2;
     const startY = (canvas.height - boxHeight) / 2;
 
-    // CEK 1: TENGAH HARUS KERTAS PUTIH
+    // CEK 1: TENGAH HARUS KERTAS PUTIH / TERANG
     const centerSample = ctx.getImageData(canvas.width / 2 - 50, canvas.height / 2 - 50, 100, 100);
     let totalBrightness = 0;
     for (let i = 0; i < centerSample.data.length; i += 4) {
@@ -85,12 +85,12 @@ function ScannerContent() {
     }
     const avgBrightness = totalBrightness / (centerSample.data.length / 4);
 
-    if (avgBrightness < 80) { setScanFeedback("Gelap / Bukan Kertas LJK 📝"); return false; }
-    if (avgBrightness > 240) { setScanFeedback("Terlalu silau! ☀️"); return false; }
+    // PENYESUAIAN LAYAR LAPTOP: Batas atas silau dinaikkan dari 240 ke 253 (hampir mentok putih murni)
+    if (avgBrightness < 60) { setScanFeedback("Gelap / Bukan Kertas LJK 📝"); return false; }
+    if (avgBrightness > 253) { setScanFeedback("Terlalu silau! ☀️"); return false; }
 
     // KUNCI UTAMA: Logika Topografi Kotak Penanda
-    // Mencari pola: Hitam (luar) -> Putih (tengah) -> Hitam (inti)
-    const anchorSize = boxWidth * 0.15; // Ukuran area pojok yang dipindai
+    const anchorSize = boxWidth * 0.15; 
     
     const isBullseyeAnchor = (x: number, y: number, size: number) => {
       const safeX = Math.max(0, Math.min(x, canvas.width - 1));
@@ -111,34 +111,33 @@ function ScannerContent() {
           const i = (py * safeW + px) * 4;
           const brightness = (data[i] * 0.299) + (data[i+1] * 0.587) + (data[i+2] * 0.114);
 
-          // Normalisasi koordinat menjadi persentase (0.0 - 1.0)
           const nx = px / safeW;
           const ny = py / safeH;
 
-          // Membagi area pojok menjadi 3 ring/lapis
           const isCore = (nx >= 0.35 && nx <= 0.65) && (ny >= 0.35 && ny <= 0.65);
           const isInsideGap = (nx >= 0.20 && nx <= 0.80) && (ny >= 0.20 && ny <= 0.80);
           const isInsideBorder = (nx >= 0.05 && nx <= 0.95) && (ny >= 0.05 && ny <= 0.95);
 
+          // PENYESUAIAN LAYAR LAPTOP: Batas kontras dilonggarkan menjadi 130
+          // (Karena warna hitam di layar laptop sering memantulkan cahaya)
           if (isCore) {
             coreTotal++;
-            if (brightness < 110) coreDark++; // Inti harus hitam
+            if (brightness < 130) coreDark++; 
           } else if (isInsideGap) {
             gapTotal++;
-            if (brightness > 140) gapLight++; // Celah harus putih
+            if (brightness > 130) gapLight++; 
           } else if (isInsideBorder) {
             borderTotal++;
-            if (brightness < 110) borderDark++; // Garis border harus hitam
+            if (brightness < 130) borderDark++; 
           }
         }
       }
 
-      // Syarat Sah: Tiap lapisan harus memenuhi kriteria minimal 40-50% sesuai perannya
-      const corePass = coreTotal > 0 && (coreDark / coreTotal) > 0.5;
-      const gapPass = gapTotal > 0 && (gapLight / gapTotal) > 0.5;
-      const borderPass = borderTotal > 0 && (borderDark / borderTotal) > 0.4;
+      // Syarat Sah diturunkan sedikit (menjadi 40% dan 30%) untuk mengakomodasi cahaya layar
+      const corePass = coreTotal > 0 && (coreDark / coreTotal) > 0.4;
+      const gapPass = gapTotal > 0 && (gapLight / gapTotal) > 0.4;
+      const borderPass = borderTotal > 0 && (borderDark / borderTotal) > 0.3;
 
-      // Jika ketiga syarat pola geometri ini terpenuhi, maka itu FIX kotak LJK Ustadz!
       return corePass && gapPass && borderPass;
     };
 
