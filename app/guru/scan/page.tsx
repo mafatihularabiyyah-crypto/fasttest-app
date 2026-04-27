@@ -61,7 +61,7 @@ function ScannerContent() {
     return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
   }, []); 
 
-  // --- 2. AI GEOMETRIS: PENDETEKSI KOTAK "BULLS-EYE" ---
+  // --- 2. AI GEOMETRIS: PENDETEKSI KOTAK SOLID (TOLERANSI TINGGI UNTUK LAPTOP) ---
   const checkLJKInFrame = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return { isPerfect: false, matchCount: 0 };
     const video = videoRef.current;
@@ -78,6 +78,7 @@ function ScannerContent() {
     const startX = (canvas.width - boxWidth) / 2;
     const startY = (canvas.height - boxHeight) / 2;
 
+    // Cek area tengah sangat longgar (hanya nolak kalau hitam pekat)
     const centerSample = ctx.getImageData(canvas.width / 2 - 50, canvas.height / 2 - 50, 100, 100);
     let totalBrightness = 0;
     for (let i = 0; i < centerSample.data.length; i += 4) {
@@ -85,16 +86,15 @@ function ScannerContent() {
     }
     const avgBrightness = totalBrightness / (centerSample.data.length / 4);
 
-    if (avgBrightness < 80) { 
+    if (avgBrightness < 40) { 
       setScanFeedback("Gelap / Bukan Kertas LJK 📝"); 
       return { isPerfect: false, matchCount: 0 }; 
     }
-    
-    // SENSOR SILAU DIHAPUS agar bisa scan dari layar monitor laptop.
 
-    const anchorSize = boxWidth * 0.15; 
-    
-    const isBullseyeAnchor = (x: number, y: number, size: number) => {
+    const anchorSize = boxWidth * 0.18; // Area pencarian pojok agak besar
+
+    // LOGIKA KOTAK SOLID (HITAM)
+    const isSolidAnchor = (x: number, y: number, size: number) => {
       const safeX = Math.max(0, Math.min(x, canvas.width - 1));
       const safeY = Math.max(0, Math.min(y, canvas.height - 1));
       const safeW = Math.min(size, canvas.width - safeX);
@@ -102,51 +102,24 @@ function ScannerContent() {
       if (safeW < 10 || safeH < 10) return false;
 
       const frame = ctx.getImageData(safeX, safeY, safeW, safeH);
-      const data = frame.data;
+      let darkPixels = 0;
+      const totalPixels = frame.data.length / 4;
 
-      let coreDark = 0, coreTotal = 0;
-      let gapLight = 0, gapTotal = 0;
-      let borderDark = 0, borderTotal = 0;
-
-      for (let py = 0; py < safeH; py++) {
-        for (let px = 0; px < safeW; px++) {
-          const i = (py * safeW + px) * 4;
-          const brightness = (data[i] * 0.299) + (data[i+1] * 0.587) + (data[i+2] * 0.114);
-
-          const nx = px / safeW;
-          const ny = py / safeH;
-
-          const isCore = (nx >= 0.35 && nx <= 0.65) && (ny >= 0.35 && ny <= 0.65);
-          const isInsideGap = (nx >= 0.20 && nx <= 0.80) && (ny >= 0.20 && ny <= 0.80);
-          const isInsideBorder = (nx >= 0.05 && nx <= 0.95) && (ny >= 0.05 && ny <= 0.95);
-
-          // TOLERANSI DILONGGARKAN UNTUK LAYAR LAPTOP
-          // Hitam di layar laptop biasanya ada di angka 130-150.
-          if (isCore) {
-            coreTotal++;
-            if (brightness < 150) coreDark++; 
-          } else if (isInsideGap) {
-            gapTotal++;
-            if (brightness > 120) gapLight++; 
-          } else if (isInsideBorder) {
-            borderTotal++;
-            if (brightness < 150) borderDark++; 
-          }
-        }
+      for (let i = 0; i < frame.data.length; i += 4) {
+        const brightness = (frame.data[i] * 0.299) + (frame.data[i+1] * 0.587) + (frame.data[i+2] * 0.114);
+        // UNTUK LAPTOP: Batas hitam dinaikkan jadi 150! Abu-abu layar laptop akan dihitung hitam.
+        if (brightness < 150) darkPixels++; 
       }
 
-      // Syarat lulus diturunkan jadi 30% karena silau laptop merusak warna hitam
-      const corePass = coreTotal > 0 && (coreDark / coreTotal) > 0.3;
-      const gapPass = gapTotal > 0 && (gapLight / gapTotal) > 0.4;
-      const borderPass = borderTotal > 0 && (borderDark / borderTotal) > 0.3;
-
-      return corePass && gapPass && borderPass;
+      const darkRatio = darkPixels / totalPixels;
+      // Cukup 15% dari pojokan ada warna hitam, dan kurang dari 85% (bukan meja murni) = PAS!
+      return darkRatio > 0.15 && darkRatio < 0.85;
     };
 
-    const topLeft = isBullseyeAnchor(startX, startY, anchorSize);
-    const topRight = isBullseyeAnchor(startX + boxWidth - anchorSize, startY, anchorSize);
-    const bottomLeft = isBullseyeAnchor(startX, startY + boxHeight - anchorSize, anchorSize);
-    const bottomRight = isBullseyeAnchor(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize);
+    const topLeft = isSolidAnchor(startX, startY, anchorSize);
+    const topRight = isSolidAnchor(startX + boxWidth - anchorSize, startY, anchorSize);
+    const bottomLeft = isSolidAnchor(startX, startY + boxHeight - anchorSize, anchorSize);
+    const bottomRight = isSolidAnchor(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize);
 
     const matchCount = [topLeft, topRight, bottomLeft, bottomRight].filter(Boolean).length;
     let isPerfect = false;
@@ -336,18 +309,11 @@ function ScannerContent() {
                 scanState === 'invalid' ? 'scale-95 bg-red-500/10' : ''}
             `}
           >
-            <div className={`absolute top-0 left-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 flex items-center justify-center ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}>
-              <div className="w-4 h-4 bg-white/70 rounded-sm"></div>
-            </div>
-            <div className={`absolute top-0 right-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 flex items-center justify-center ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}>
-               <div className="w-4 h-4 bg-white/70 rounded-sm"></div>
-            </div>
-            <div className={`absolute bottom-0 left-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 flex items-center justify-center ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}>
-               <div className="w-4 h-4 bg-white/70 rounded-sm"></div>
-            </div>
-            <div className={`absolute bottom-0 right-0 w-20 h-20 sm:w-24 sm:h-24 border-4 transition-colors duration-300 flex items-center justify-center ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}>
-               <div className="w-4 h-4 bg-white/70 rounded-sm"></div>
-            </div>
+            {/* INDIKATOR KOTAK SOLID */}
+            <div className={`absolute top-0 left-0 w-16 h-16 sm:w-20 sm:h-20 border-4 transition-colors duration-300 ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}></div>
+            <div className={`absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 border-4 transition-colors duration-300 ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}></div>
+            <div className={`absolute bottom-0 left-0 w-16 h-16 sm:w-20 sm:h-20 border-4 transition-colors duration-300 ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}></div>
+            <div className={`absolute bottom-0 right-0 w-16 h-16 sm:w-20 sm:h-20 border-4 transition-colors duration-300 ${scanState === 'locked' ? 'bg-green-500/50 border-green-400' : scanState === 'aligning' ? 'bg-yellow-500/30 border-yellow-400' : 'bg-black/40 border-white/70'}`}></div>
 
             {scanState === 'searching' && (
               <div className="absolute top-0 left-0 w-full h-[3px] bg-blue-500 shadow-[0_0_15px_4px_rgba(59,130,246,0.9)] animate-[scan_2s_ease-in-out_infinite] pointer-events-none" />
