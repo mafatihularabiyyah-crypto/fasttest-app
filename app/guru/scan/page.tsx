@@ -27,6 +27,13 @@ interface HasilKoreksi {
   detailJawaban?: any[];
 }
 
+interface Corners {
+  tl: { x: number, y: number };
+  tr: { x: number, y: number };
+  bl: { x: number, y: number };
+  br: { x: number, y: number };
+}
+
 function ScannerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,14 +60,17 @@ function ScannerContent() {
   const [listUjianDB, setListUjianDB] = useState<any[]>([]);
   const [tempSelectedId, setTempSelectedId] = useState<string>("");
 
-  // STATE DATA DB
+  // STATE DATA DB & LAYOUT DINAMIS
   const [kunciAsli, setKunciAsli] = useState<string[]>([]);
   const [daftarSantri, setDaftarSantri] = useState<any[]>([]);
   const [isDataReady, setIsDataReady] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
-  // STATE UI PENCOCOKAN SANTRI
   const [selectedSantriId, setSelectedSantriId] = useState<string>("");
+
+  const [soalPerKolom, setSoalPerKolom] = useState<number>(20);
+  const [nisDigit, setNisDigit] = useState<number>(6);
+
+  const lastCorners = useRef<Corners | null>(null);
 
   // --- 0A. AMBIL DAFTAR UJIAN ---
   useEffect(() => {
@@ -73,6 +83,30 @@ function ScannerContent() {
     }
   }, [showSelector, supabase]);
 
+  // --- 0B. AUTO-KALKULASI LAYOUT SAAT MEMILIH UJIAN ---
+  useEffect(() => {
+    const hitungLayoutOtomatis = async () => {
+      if (!tempSelectedId) return;
+      
+      const { data: soalData } = await supabase.from('Soal').select('id').eq('ujian_id', tempSelectedId);
+      const totalSoal = soalData ? soalData.length : 0;
+      
+      // Rumus cerdas menebak jumlah kolom ideal (Maksimal 20 soal per kolom)
+      if (totalSoal > 0) {
+        const tebakanKolom = Math.ceil(totalSoal / 20); // Berapa kolom yang dibutuhkan?
+        const tebakanSoalPerKolom = Math.ceil(totalSoal / tebakanKolom); // Bagi rata
+        setSoalPerKolom(tebakanSoalPerKolom);
+      }
+
+      const { data: santriData } = await supabase.from('Santri').select('nis');
+      if (santriData && santriData.length > 0) {
+        const maxDigit = Math.max(...santriData.map(s => s.nis?.replace(/\D/g, '').length || 0));
+        if (maxDigit > 0) setNisDigit(maxDigit);
+      }
+    };
+    if (showSelector && tempSelectedId) hitungLayoutOtomatis();
+  }, [tempSelectedId, showSelector, supabase]);
+
   const handleMulaiScan = () => {
     if (!tempSelectedId) return;
     const selected = listUjianDB.find(u => String(u.id) === tempSelectedId);
@@ -84,14 +118,13 @@ function ScannerContent() {
     }
   };
 
-  // --- 0B. AMBIL DATA KUNCI & SANTRI ---
+  // --- 0C. MUAT DATA KUNCI ---
   useEffect(() => {
     const loadDatabase = async () => {
       if (!activeUjianId) return;
-
       setIsDataReady(false);
       try {
-        setScanFeedback("Memuat soal...");
+        setScanFeedback("Memuat data ujian...");
         const { data: soalData } = await supabase.from('Soal').select('id').eq('ujian_id', activeUjianId).order('id', { ascending: true });
 
         if (soalData && soalData.length > 0) {
@@ -105,20 +138,31 @@ function ScannerContent() {
              kunciArray.push(benar ? benar.label : '-');
           }
           setKunciAsli(kunciArray);
+          
+          // Pengamanan jika masuk via URL langsung
+          if (!showSelector) {
+            const cols = Math.ceil(kunciArray.length / 20);
+            setSoalPerKolom(Math.ceil(kunciArray.length / cols));
+          }
         } else {
-          setKunciAsli(Array(36).fill('A')); // Dummy 36 soal jika kosong
+          setKunciAsli(Array(soalPerKolom * 2).fill('A')); // Dummy
         }
 
         const { data: santriData } = await supabase.from('Santri').select('id, nama, nis, kelas');
-        if (santriData) setDaftarSantri(santriData);
+        if (santriData) {
+          setDaftarSantri(santriData);
+          if (!showSelector) {
+             const maxDigit = Math.max(...santriData.map(s => s.nis?.replace(/\D/g, '').length || 0));
+             if (maxDigit > 0) setNisDigit(maxDigit);
+          }
+        }
 
         setIsDataReady(true);
-        setScanFeedback("Paskan 4 sudut LJK...");
+        setScanFeedback("Arahkan kamera ke 4 sudut hitam LJK");
       } catch (e: any) {
-        setScanFeedback("⚠️ Error: " + e.message);
+        setScanFeedback("⚠️ Error DB: " + e.message);
       }
     };
-    
     if (!showSelector) loadDatabase();
   }, [activeUjianId, showSelector, supabase]);
 
@@ -129,7 +173,7 @@ function ScannerContent() {
       if (showSelector) return; 
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+          video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
         });
         if (videoRef.current) videoRef.current.srcObject = stream;
         setHasPermission(true);
@@ -141,6 +185,7 @@ function ScannerContent() {
     return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
   }, [showSelector]); 
 
+  // --- PEMETAAN LAYAR KE VIDEO PENGAMBILAN ---
   const getMappedCoordinates = () => {
     if (!videoRef.current || !boxRef.current) return null;
     const video = videoRef.current;
@@ -171,12 +216,12 @@ function ScannerContent() {
     };
   };
 
-  // --- 2. DETEKSI KOTAK HITAM ---
+  // --- 2. DETEKSI PUSAT MASSA (CENTER OF MASS) KOTAK ---
   const checkLJKInFrame = useCallback(() => {
-    if (!isDataReady || !canvasRef.current || !videoRef.current) return { isPerfect: false, matchCount: 0 };
+    if (!isDataReady || !canvasRef.current || !videoRef.current) return { isPerfect: false, matchCount: 0, corners: null };
     
     const coords = getMappedCoordinates();
-    if (!coords) return { isPerfect: false, matchCount: 0 };
+    if (!coords) return { isPerfect: false, matchCount: 0, corners: null };
     const { startX, startY, boxWidth, boxHeight } = coords;
 
     const canvas = canvasRef.current;
@@ -185,160 +230,203 @@ function ScannerContent() {
     canvas.height = videoRef.current.videoHeight;
     ctx?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-    const anchorSize = boxWidth * 0.20; 
+    const anchorSize = boxWidth * 0.25; 
     
-    const isBullsEye = (x: number, y: number, size: number) => {
+    const getAnchorCenter = (x: number, y: number, w: number, h: number) => {
       const safeX = Math.max(0, x); const safeY = Math.max(0, y);
-      const safeW = Math.min(size, canvas.width - safeX); const safeH = Math.min(size, canvas.height - safeY);
-      if (safeW < 10 || safeH < 10) return false;
+      const safeW = Math.min(w, canvas.width - safeX); const safeH = Math.min(h, canvas.height - safeY);
+      if (safeW < 10 || safeH < 10) return null;
 
       const frame = ctx?.getImageData(safeX, safeY, safeW, safeH);
-      if (!frame) return false;
-      let dark = 0, light = 0;
-      for (let i = 0; i < frame.data.length; i += 4) {
-        const b = (frame.data[i] * 0.299) + (frame.data[i+1] * 0.587) + (frame.data[i+2] * 0.114);
-        if (b < 120) dark++; else if (b > 150) light++;
+      if (!frame) return null;
+      
+      let sumX = 0, sumY = 0, count = 0;
+      for (let py = 0; py < safeH; py++) {
+        for (let px = 0; px < safeW; px++) {
+          const idx = (py * safeW + px) * 4;
+          const b = (frame.data[idx]*0.299 + frame.data[idx+1]*0.587 + frame.data[idx+2]*0.114);
+          if (b < 110) { 
+            sumX += (safeX + px);
+            sumY += (safeY + py);
+            count++;
+          }
+        }
       }
-      const total = frame.data.length / 4;
-      return (dark / total > 0.05) && (light / total > 0.20); 
+      
+      if (count > (safeW * safeH * 0.05)) {
+        return { x: sumX / count, y: sumY / count };
+      }
+      return null;
     };
 
-    const tl = isBullsEye(startX, startY, anchorSize);
-    const tr = isBullsEye(startX + boxWidth - anchorSize, startY, anchorSize);
-    const bl = isBullsEye(startX, startY + boxHeight - anchorSize, anchorSize);
-    const br = isBullsEye(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize);
+    const tl = getAnchorCenter(startX, startY, anchorSize, anchorSize);
+    const tr = getAnchorCenter(startX + boxWidth - anchorSize, startY, anchorSize, anchorSize);
+    const bl = getAnchorCenter(startX, startY + boxHeight - anchorSize, anchorSize, anchorSize);
+    const br = getAnchorCenter(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize, anchorSize);
 
     const matches = [tl, tr, bl, br].filter(Boolean).length;
 
-    if (matches === 4) {
-      setScanFeedback("Terkunci! Memotret otomatis...");
-      return { isPerfect: true, matchCount: 4 };
+    if (matches === 4 && tl && tr && bl && br) {
+      setScanFeedback("Mengekstraksi Data...");
+      return { isPerfect: true, matchCount: 4, corners: { tl, tr, bl, br } };
     } else if (matches > 0) {
-      setScanFeedback(`Sudut terlihat: ${matches}/4. Paskan bingkai...`);
+      setScanFeedback(`Sudut terbaca: ${matches}/4. Tahan...`);
     } else {
-      setScanFeedback("Arahkan 4 sudut LJK ke bingkai 🔲");
+      setScanFeedback("Arahkan 4 sudut LJK ke bingkai");
     }
 
-    return { isPerfect: false, matchCount: matches };
+    return { isPerfect: false, matchCount: matches, corners: null };
   }, [isDataReady]);
 
-  // --- 3. LOOP OTOMATIS & MANUAL ---
+  // --- 3. LOOP OTOMATIS ---
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (scanState === 'searching' && isDataReady && !showSelector) {
       interval = setInterval(() => {
-        const { isPerfect } = checkLJKInFrame();
-        if (isPerfect) {
+        const { isPerfect, corners } = checkLJKInFrame();
+        if (isPerfect && corners) {
           clearInterval(interval);
-          executeCapture(true);
+          executeCapture(corners);
         }
       }, 400); 
     }
     return () => clearInterval(interval);
   }, [scanState, isDataReady, showSelector, checkLJKInFrame]);
 
+  // FUNGSI JEPRET PAKSA
   const handleManualCapture = () => {
     if (kunciAsli.length === 0) return alert("Sistem belum siap.");
-    setScanState('locked');
-    setTimeout(() => { processOMR(true); }, 200); 
+    const { corners } = checkLJKInFrame();
+    
+    let finalCorners = corners;
+    if (!finalCorners) {
+        const c = getMappedCoordinates();
+        if(c) {
+           finalCorners = {
+             tl: { x: c.startX, y: c.startY },
+             tr: { x: c.startX + c.boxWidth, y: c.startY },
+             bl: { x: c.startX, y: c.startY + c.boxHeight },
+             br: { x: c.startX + c.boxWidth, y: c.startY + c.boxHeight }
+           }
+        }
+    }
+
+    if(finalCorners) executeCapture(finalCorners);
   };
 
-  const executeCapture = (isValid: boolean) => {
+  const executeCapture = (corners: Corners) => {
     setScanState('locked');
-    setTimeout(() => { processOMR(isValid); }, 300);
+    lastCorners.current = corners;
+    setTimeout(() => { processOMR(corners); }, 300);
   };
 
-  // --- 4. MESIN OMR (CROP & KALIBRASI) ---
-  const processOMR = (isValid: boolean) => {
+  // --- 4. MESIN OMR (PERSPEKTIF + LAYOUT DINAMIS) ---
+  const processOMR = (corners: Corners) => {
     if (!videoRef.current) return;
-    const coords = getMappedCoordinates();
-    if (!coords) return;
-    const { startX, startY, boxWidth: W, boxHeight: H } = coords;
 
-    // KITA BUAT CANVAS BARU KHUSUS UNTUK MENG-CROP GAMBAR LJK
+    const minX = Math.min(corners.tl.x, corners.bl.x);
+    const maxX = Math.max(corners.tr.x, corners.br.x);
+    const minY = Math.min(corners.tl.y, corners.tr.y);
+    const maxY = Math.max(corners.bl.y, corners.br.y);
+    
+    const cropW = maxX - minX;
+    const cropH = maxY - minY;
+
     const cropCanvas = document.createElement('canvas');
-    cropCanvas.width = W;
-    cropCanvas.height = H;
+    cropCanvas.width = cropW;
+    cropCanvas.height = cropH;
     const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
     if (!cropCtx) return;
 
-    // FOTO HANYA BAGIAN LJK! (Bebas dari latar belakang)
-    cropCtx.drawImage(videoRef.current, startX, startY, W, H, 0, 0, W, H);
+    cropCtx.drawImage(videoRef.current, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
 
-    if (!isValid) {
-      setCapturedImage(cropCanvas.toDataURL('image/jpeg', 0.8));
-      setRealScanResult({ error: "Gagal mendeteksi pola. Pastikan pencahayaan cukup." });
-      setScanState('result'); return;
-    }
+    const cTL = { x: corners.tl.x - minX, y: corners.tl.y - minY };
+    const cTR = { x: corners.tr.x - minX, y: corners.tr.y - minY };
+    const cBL = { x: corners.bl.x - minX, y: corners.bl.y - minY };
+    const cBR = { x: corners.br.x - minX, y: corners.br.y - minY };
 
-    // FUNGSI CEK TINTA (PENSIL) PADA KOORDINAT CANVAS CROP
+    const getMappedPoint = (u: number, v: number) => {
+        const topX = cTL.x + u * (cTR.x - cTL.x);
+        const topY = cTL.y + u * (cTR.y - cTL.y);
+        const botX = cBL.x + u * (cBR.x - cBL.x);
+        const botY = cBL.y + u * (cBR.y - cBL.y);
+        return {
+            x: topX + v * (botX - topX),
+            y: topY + v * (botY - topY)
+        };
+    };
+
     const isBubbleFilled = (cx: number, cy: number, radius: number) => {
       const safeX = Math.max(0, cx - radius); const safeY = Math.max(0, cy - radius);
-      const safeW = Math.min(radius * 2, W - safeX); const safeH = Math.min(radius * 2, H - safeY);
+      const safeW = Math.min(radius * 2, cropW - safeX); const safeH = Math.min(radius * 2, cropH - safeY);
       if (safeW <= 0 || safeH <= 0) return false;
 
       const frame = cropCtx.getImageData(safeX, safeY, safeW, safeH);
       let dark = 0;
       for (let i = 0; i < frame.data.length; i += 4) {
         const b = (frame.data[i] * 0.299) + (frame.data[i+1] * 0.587) + (frame.data[i+2] * 0.114);
-        if (b < 120) dark++; 
+        if (b < 130) dark++; 
       }
-      return (dark / (frame.data.length / 4)) > 0.35; // Minimal 35% terisi tinta
+      return (dark / (frame.data.length / 4)) > 0.40; 
     };
 
-    // 1. MENDETEKSI ARSIRAN NIS (6 Digit)
-    // Kalibrasi posisi kotak NIS berdasarkan desain LJK
-    const nisCols = 6;
+    // 1. MENDETEKSI ARSIRAN NIS DINAMIS
+    const nisCols = nisDigit || 6; 
     const nisRows = 10;
-    const nStartX = W * 0.725; // X Mulai NIS
-    const nStartY = H * 0.148; // Y Mulai NIS
-    const nStepX = W * 0.038;  // Jarak antar kolom NIS
-    const nStepY = H * 0.021;  // Jarak antar baris (angka 0-9)
-    const nRadius = W * 0.015;
+    
+    // Koordinat NIS menyesuaikan jumlah kolom
+    const nStartU = 0.68; 
+    const nStartV = 0.15;
+    const nStepU = 0.035; 
+    const nStepV = 0.024;
+    const nRadius = cropW * 0.015;
 
     let detectedNis = "";
     for (let c = 0; c < nisCols; c++) {
       let maxDark = 0; let bestRow = -1;
       for (let r = 0; r < nisRows; r++) {
-        const bX = nStartX + (c * nStepX); const bY = nStartY + (r * nStepY);
+        const pt = getMappedPoint(nStartU + (c * nStepU), nStartV + (r * nStepV));
         
-        // Cek ketebalan tinta
-        const frame = cropCtx.getImageData(bX - nRadius, bY - nRadius, nRadius*2, nRadius*2);
+        const frame = cropCtx.getImageData(pt.x - nRadius, pt.y - nRadius, nRadius*2, nRadius*2);
         let darkCount = 0;
         for (let i=0; i<frame.data.length; i+=4) {
            const b = (frame.data[i]*0.299) + (frame.data[i+1]*0.587) + (frame.data[i+2]*0.114);
-           if (b < 120) darkCount++;
+           if (b < 130) darkCount++;
         }
         const darkRatio = darkCount / (frame.data.length/4);
-        if (darkRatio > maxDark && darkRatio > 0.25) { maxDark = darkRatio; bestRow = r; }
+        if (darkRatio > maxDark && darkRatio > 0.3) { maxDark = darkRatio; bestRow = r; }
       }
       detectedNis += bestRow !== -1 ? bestRow.toString() : "?";
     }
 
-    // 2. MENDETEKSI JAWABAN (36 Soal, 2 Kolom)
+    // 2. MENDETEKSI JAWABAN DINAMIS (BISA 1, 2, 3, 4 KOLOM)
     let benar = 0, salah = 0, kosong = 0;
     const detail = [];
     const opsi = ['A', 'B', 'C', 'D']; 
 
-    const qStartX1 = W * 0.22; // X Kolom 1 (Soal 1-18)
-    const qStartX2 = W * 0.62; // X Kolom 2 (Soal 19-36)
-    const qStartY  = H * 0.38; // Y Mulai Soal
-    const qStepX   = W * 0.045; // Jarak antar opsi ABCD
-    const qStepY   = H * 0.028; // Jarak antar nomor soal
-    const qRadius  = W * 0.018;
+    const numCols = Math.ceil(kunciAsli.length / soalPerKolom) || 1;
+    const qColStepU = 0.85 / Math.max(numCols, 1); // Membagi rata area lebar kertas untuk kolom
+    const qOptStepU = 0.040; // Jarak baku A ke B
+    const qStepV = 0.025; // Jarak baku Nomor 1 ke Nomor 2
+    
+    const qStartU = 0.15; // Titik awal kolom 1
+    const qStartV = 0.52; // Titik awal baris 1 (Agak ke bawah karena ada header)
+    const qRadius = cropW * 0.018;
 
     for (let i = 0; i < kunciAsli.length; i++) {
       const kunci = kunciAsli[i] || '-';
       
-      const isCol2 = i >= 18;
-      const row = isCol2 ? i - 18 : i;
-      const xPos = isCol2 ? qStartX2 : qStartX1;
-      const yPos = qStartY + (row * qStepY);
+      const col = Math.floor(i / soalPerKolom);
+      const row = i % soalPerKolom;
+      
+      const baseU = qStartU + (col * qColStepU);
+      const baseV = qStartV + (row * qStepV);
 
       let jawab = '-'; let jmlTerisi = 0;
 
       for (let j = 0; j < opsi.length; j++) {
-         if (isBubbleFilled(xPos + (j * qStepX), yPos, qRadius)) { jawab = opsi[j]; jmlTerisi++; }
+         const pt = getMappedPoint(baseU + (j * qOptStepU), baseV);
+         if (isBubbleFilled(pt.x, pt.y, qRadius)) { jawab = opsi[j]; jmlTerisi++; }
       }
 
       let status = 'salah';
@@ -349,31 +437,32 @@ function ScannerContent() {
 
       detail.push({ no: i + 1, jawab, kunci, status });
 
-      // GAMBAR LINGKARAN OVERLAY (DI CANVAS CROP)
+      // GAMBAR LINGKARAN OVERLAY PERSPEKTIF
       const idx = opsi.indexOf(jawab);
       const kIdx = opsi.indexOf(kunci);
       
       cropCtx.lineWidth = 4;
       if (status === 'benar') {
+        const pt = getMappedPoint(baseU + (idx * qOptStepU), baseV);
         cropCtx.strokeStyle = '#22c55e'; // Hijau
-        cropCtx.beginPath(); cropCtx.arc(xPos + (idx * qStepX), yPos, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
+        cropCtx.beginPath(); cropCtx.arc(pt.x, pt.y, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
       } else {
         if (idx !== -1) {
+          const pt = getMappedPoint(baseU + (idx * qOptStepU), baseV);
           cropCtx.strokeStyle = '#ef4444'; // Merah
-          cropCtx.beginPath(); cropCtx.arc(xPos + (idx * qStepX), yPos, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
+          cropCtx.beginPath(); cropCtx.arc(pt.x, pt.y, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
         }
         if (kIdx !== -1) {
+          const pt = getMappedPoint(baseU + (kIdx * qOptStepU), baseV);
           cropCtx.strokeStyle = '#eab308'; // Kuning
-          cropCtx.beginPath(); cropCtx.arc(xPos + (kIdx * qStepX), yPos, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
+          cropCtx.beginPath(); cropCtx.arc(pt.x, pt.y, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
         }
       }
     }
 
-    // TAMPILKAN HASIL CROP + OVERLAY KE LAYAR
     setCapturedImage(cropCanvas.toDataURL('image/jpeg', 0.9));
     const nilai = kunciAsli.length > 0 ? Math.round((benar / kunciAsli.length) * 100) : 0;
 
-    // AUTO SELECT SANTRI DARI NIS
     let matchedId = "";
     if (!detectedNis.includes("?")) {
       const match = daftarSantri.find(s => s.nis === detectedNis);
@@ -389,7 +478,8 @@ function ScannerContent() {
       detailJawaban: detail
     });
 
-    setScanState('result');
+    setScanState('flashing'); 
+    setTimeout(() => setScanState('result'), 200);
   };
 
   const reset = () => {
@@ -401,11 +491,10 @@ function ScannerContent() {
 
   const handleSimpanDanLanjut = () => {
     if (!selectedSantriId) {
-      alert("Pilih nama santri terlebih dahulu sebelum menyimpan!");
+      alert("Mohon pilih nama santri dari kotak dropdown di atas!");
       return;
     }
     setIsSaving(true);
-    // [LOGIKA SIMPAN KE SUPABASE DI SINI NANTI]
     setTimeout(() => {
       setIsSaving(false);
       reset();
@@ -418,19 +507,19 @@ function ScannerContent() {
 
       <div className="relative w-full h-full max-w-md bg-black shadow-2xl flex flex-col overflow-hidden">
         
-        {/* --- POP-UP PILIH UJIAN --- */}
+        {/* --- POP-UP PILIH UJIAN & LAYOUT DINAMIS --- */}
         {showSelector && (
           <div className="absolute inset-0 z-[2000] bg-slate-900 flex items-center justify-center p-6">
             <div className="bg-white p-8 rounded-[2rem] w-full max-w-sm flex flex-col items-center text-center shadow-2xl animate-in zoom-in duration-300">
-              <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6 border-4 border-blue-100">
-                 <FolderOpen size={40} weight="fill" />
+              <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 border-4 border-blue-100">
+                 <FolderOpen size={32} weight="fill" />
               </div>
-              <h2 className="text-xl font-black text-slate-800 mb-2 tracking-tight">Pilih Arsip Ujian</h2>
-              <p className="text-xs text-slate-500 mb-8 font-medium leading-relaxed px-2">Pilih folder ujian untuk memuat Kunci Jawaban.</p>
+              <h2 className="text-xl font-black text-slate-800 mb-1 tracking-tight">Persiapan Scan</h2>
+              <p className="text-xs text-slate-500 mb-6 font-medium leading-relaxed px-2">Pilih folder ujian & atur format bentuk LJK Anda.</p>
               
-              <div className="w-full text-left mb-8">
+              <div className="w-full text-left mb-4">
                  <select 
-                   className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all appearance-none"
+                   className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all appearance-none"
                    value={tempSelectedId}
                    onChange={(e) => setTempSelectedId(e.target.value)}
                  >
@@ -438,6 +527,30 @@ function ScannerContent() {
                    {listUjianDB.map(u => <option key={u.id} value={u.id}>{u.nama_ujian}</option>)}
                  </select>
               </div>
+
+              {/* PENGATURAN GRID DINAMIS */}
+              {tempSelectedId && (
+                <div className="w-full grid grid-cols-2 gap-3 mb-6 bg-blue-50/50 p-3 rounded-2xl border border-blue-100/50">
+                  <div className="text-left">
+                     <label className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-1 block">Soal / Kolom</label>
+                     <input 
+                       type="number" 
+                       value={soalPerKolom} 
+                       onChange={(e) => setSoalPerKolom(Number(e.target.value))} 
+                       className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-black text-slate-700 text-sm focus:border-blue-400 outline-none" 
+                     />
+                  </div>
+                  <div className="text-left">
+                     <label className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-1 block">Digit NIS</label>
+                     <input 
+                       type="number" 
+                       value={nisDigit} 
+                       onChange={(e) => setNisDigit(Number(e.target.value))} 
+                       className="w-full p-2.5 bg-white border border-slate-200 rounded-xl font-black text-slate-700 text-sm focus:border-blue-400 outline-none" 
+                     />
+                  </div>
+                </div>
+              )}
 
               <div className="w-full flex gap-3">
                  <Link href="/guru" className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl text-xs uppercase tracking-widest hover:bg-slate-200 flex justify-center items-center">Batal</Link>
@@ -526,7 +639,12 @@ function ScannerContent() {
                     {resultTab === 'ringkasan' ? (
                       <div className="space-y-3">
                         <div className="flex flex-col gap-1">
-                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nama Santri <span className="text-blue-500 lowercase">(NIS: {realScanResult.nisTerbaca})</span></label>
+                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                             Nama Santri 
+                             {realScanResult.nisTerbaca?.includes('?') ? 
+                                <span className="text-red-500 lowercase ml-1">(NIS Tidak Lengkap: {realScanResult.nisTerbaca})</span> : 
+                                <span className="text-emerald-500 lowercase ml-1">(NIS: {realScanResult.nisTerbaca})</span>}
+                           </label>
                            <select 
                              className={`w-full p-2.5 border font-bold rounded-lg outline-none text-xs ${selectedSantriId ? 'bg-green-50 border-green-400 text-green-800' : 'bg-amber-50 border-amber-400 text-amber-800'}`}
                              value={selectedSantriId}
@@ -548,7 +666,6 @@ function ScannerContent() {
                           </div>
                         </div>
 
-                        {/* GAMBAR SEKARANG DICROP PERSIS LJK SAJA */}
                         <div className="relative w-full aspect-[1/1.414] bg-slate-800 rounded-xl overflow-hidden border border-slate-300 shadow-inner">
                           {capturedImage && <img src={capturedImage} alt="Scan" className="absolute inset-0 w-full h-full object-cover" />}
                         </div>
