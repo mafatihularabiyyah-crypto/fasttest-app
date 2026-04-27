@@ -83,18 +83,16 @@ function ScannerContent() {
     }
   }, [showSelector, supabase]);
 
-  // --- 0B. AUTO-KALKULASI LAYOUT SAAT MEMILIH UJIAN ---
+  // --- 0B. AUTO-KALKULASI LAYOUT ---
   useEffect(() => {
     const hitungLayoutOtomatis = async () => {
       if (!tempSelectedId) return;
-      
       const { data: soalData } = await supabase.from('Soal').select('id').eq('ujian_id', tempSelectedId);
       const totalSoal = soalData ? soalData.length : 0;
       
-      // Rumus cerdas menebak jumlah kolom ideal (Maksimal 20 soal per kolom)
       if (totalSoal > 0) {
-        const tebakanKolom = Math.ceil(totalSoal / 20); // Berapa kolom yang dibutuhkan?
-        const tebakanSoalPerKolom = Math.ceil(totalSoal / tebakanKolom); // Bagi rata
+        const tebakanKolom = Math.ceil(totalSoal / 20); 
+        const tebakanSoalPerKolom = Math.ceil(totalSoal / tebakanKolom); 
         setSoalPerKolom(tebakanSoalPerKolom);
       }
 
@@ -139,13 +137,12 @@ function ScannerContent() {
           }
           setKunciAsli(kunciArray);
           
-          // Pengamanan jika masuk via URL langsung
           if (!showSelector) {
             const cols = Math.ceil(kunciArray.length / 20);
-            setSoalPerKolom(Math.ceil(kunciArray.length / cols));
+            setSoalPerKolom(Math.ceil(kunciArray.length / Math.max(cols, 1)));
           }
         } else {
-          setKunciAsli(Array(soalPerKolom * 2).fill('A')); // Dummy
+          setKunciAsli(Array(soalPerKolom * 2).fill('A')); 
         }
 
         const { data: santriData } = await supabase.from('Santri').select('id, nama, nis, kelas');
@@ -158,13 +155,13 @@ function ScannerContent() {
         }
 
         setIsDataReady(true);
-        setScanFeedback("Arahkan kamera ke 4 sudut hitam LJK");
+        setScanFeedback("Paskan 4 sudut hitam LJK");
       } catch (e: any) {
         setScanFeedback("⚠️ Error DB: " + e.message);
       }
     };
     if (!showSelector) loadDatabase();
-  }, [activeUjianId, showSelector, supabase]);
+  }, [activeUjianId, showSelector, supabase, soalPerKolom]);
 
   // --- 1. HIDUPKAN KAMERA ---
   useEffect(() => {
@@ -216,7 +213,7 @@ function ScannerContent() {
     };
   };
 
-  // --- 2. DETEKSI PUSAT MASSA (CENTER OF MASS) KOTAK ---
+  // --- 2. DETEKSI PUSAT MASSA (SANGAT DILONGGARKAN) ---
   const checkLJKInFrame = useCallback(() => {
     if (!isDataReady || !canvasRef.current || !videoRef.current) return { isPerfect: false, matchCount: 0, corners: null };
     
@@ -245,7 +242,8 @@ function ScannerContent() {
         for (let px = 0; px < safeW; px++) {
           const idx = (py * safeW + px) * 4;
           const b = (frame.data[idx]*0.299 + frame.data[idx+1]*0.587 + frame.data[idx+2]*0.114);
-          if (b < 110) { 
+          // SANGAT DILONGGARKAN (Dari 110 menjadi 160). Abu-abu layar laptop akan dihitung hitam!
+          if (b < 160) { 
             sumX += (safeX + px);
             sumY += (safeY + py);
             count++;
@@ -253,7 +251,8 @@ function ScannerContent() {
         }
       }
       
-      if (count > (safeW * safeH * 0.05)) {
+      // SANGAT DILONGGARKAN (Cukup 2% area saja yang terdeteksi gelap, AI langsung menyetujui)
+      if (count > (safeW * safeH * 0.02)) {
         return { x: sumX / count, y: sumY / count };
       }
       return null;
@@ -270,9 +269,9 @@ function ScannerContent() {
       setScanFeedback("Mengekstraksi Data...");
       return { isPerfect: true, matchCount: 4, corners: { tl, tr, bl, br } };
     } else if (matches > 0) {
-      setScanFeedback(`Sudut terbaca: ${matches}/4. Tahan...`);
+      setScanFeedback(`Sudut terbaca: ${matches}/4. Paskan...`);
     } else {
-      setScanFeedback("Arahkan 4 sudut LJK ke bingkai");
+      setScanFeedback("Arahkan 4 kotak LJK ke bingkai");
     }
 
     return { isPerfect: false, matchCount: matches, corners: null };
@@ -373,12 +372,8 @@ function ScannerContent() {
     // 1. MENDETEKSI ARSIRAN NIS DINAMIS
     const nisCols = nisDigit || 6; 
     const nisRows = 10;
-    
-    // Koordinat NIS menyesuaikan jumlah kolom
-    const nStartU = 0.68; 
-    const nStartV = 0.15;
-    const nStepU = 0.035; 
-    const nStepV = 0.024;
+    const nStartU = 0.68; const nStartV = 0.15;
+    const nStepU = 0.035; const nStepV = 0.024;
     const nRadius = cropW * 0.015;
 
     let detectedNis = "";
@@ -386,7 +381,6 @@ function ScannerContent() {
       let maxDark = 0; let bestRow = -1;
       for (let r = 0; r < nisRows; r++) {
         const pt = getMappedPoint(nStartU + (c * nStepU), nStartV + (r * nStepV));
-        
         const frame = cropCtx.getImageData(pt.x - nRadius, pt.y - nRadius, nRadius*2, nRadius*2);
         let darkCount = 0;
         for (let i=0; i<frame.data.length; i+=4) {
@@ -399,18 +393,17 @@ function ScannerContent() {
       detectedNis += bestRow !== -1 ? bestRow.toString() : "?";
     }
 
-    // 2. MENDETEKSI JAWABAN DINAMIS (BISA 1, 2, 3, 4 KOLOM)
+    // 2. MENDETEKSI JAWABAN DINAMIS
     let benar = 0, salah = 0, kosong = 0;
     const detail = [];
     const opsi = ['A', 'B', 'C', 'D']; 
 
-    const numCols = Math.ceil(kunciAsli.length / soalPerKolom) || 1;
-    const qColStepU = 0.85 / Math.max(numCols, 1); // Membagi rata area lebar kertas untuk kolom
-    const qOptStepU = 0.040; // Jarak baku A ke B
-    const qStepV = 0.025; // Jarak baku Nomor 1 ke Nomor 2
-    
-    const qStartU = 0.15; // Titik awal kolom 1
-    const qStartV = 0.52; // Titik awal baris 1 (Agak ke bawah karena ada header)
+    const numCols = Math.ceil(kunciAsli.length / Math.max(soalPerKolom, 1)) || 1;
+    const qColStepU = 0.85 / Math.max(numCols, 1); 
+    const qOptStepU = 0.040; 
+    const qStepV = 0.025; 
+    const qStartU = 0.15; 
+    const qStartV = 0.52; 
     const qRadius = cropW * 0.018;
 
     for (let i = 0; i < kunciAsli.length; i++) {
@@ -437,24 +430,23 @@ function ScannerContent() {
 
       detail.push({ no: i + 1, jawab, kunci, status });
 
-      // GAMBAR LINGKARAN OVERLAY PERSPEKTIF
       const idx = opsi.indexOf(jawab);
       const kIdx = opsi.indexOf(kunci);
       
       cropCtx.lineWidth = 4;
       if (status === 'benar') {
         const pt = getMappedPoint(baseU + (idx * qOptStepU), baseV);
-        cropCtx.strokeStyle = '#22c55e'; // Hijau
+        cropCtx.strokeStyle = '#22c55e'; 
         cropCtx.beginPath(); cropCtx.arc(pt.x, pt.y, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
       } else {
         if (idx !== -1) {
           const pt = getMappedPoint(baseU + (idx * qOptStepU), baseV);
-          cropCtx.strokeStyle = '#ef4444'; // Merah
+          cropCtx.strokeStyle = '#ef4444'; 
           cropCtx.beginPath(); cropCtx.arc(pt.x, pt.y, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
         }
         if (kIdx !== -1) {
           const pt = getMappedPoint(baseU + (kIdx * qOptStepU), baseV);
-          cropCtx.strokeStyle = '#eab308'; // Kuning
+          cropCtx.strokeStyle = '#eab308'; 
           cropCtx.beginPath(); cropCtx.arc(pt.x, pt.y, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
         }
       }
@@ -528,7 +520,6 @@ function ScannerContent() {
                  </select>
               </div>
 
-              {/* PENGATURAN GRID DINAMIS */}
               {tempSelectedId && (
                 <div className="w-full grid grid-cols-2 gap-3 mb-6 bg-blue-50/50 p-3 rounded-2xl border border-blue-100/50">
                   <div className="text-left">
