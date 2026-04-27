@@ -27,13 +27,6 @@ interface HasilKoreksi {
   detailJawaban?: any[];
 }
 
-interface Corners {
-  tl: { x: number, y: number };
-  tr: { x: number, y: number };
-  bl: { x: number, y: number };
-  br: { x: number, y: number };
-}
-
 function ScannerContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,10 +60,8 @@ function ScannerContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [selectedSantriId, setSelectedSantriId] = useState<string>("");
 
-  const [soalPerKolom, setSoalPerKolom] = useState<number>(20);
-  const [nisDigit, setNisDigit] = useState<number>(6);
-
-  const lastCorners = useRef<Corners | null>(null);
+  const [soalPerKolom, setSoalPerKolom] = useState<number>(18); // Default 18 (seperti LJK Ustadz)
+  const [nisDigit, setNisDigit] = useState<number>(6); // Default 6
 
   // --- 0A. AMBIL DAFTAR UJIAN ---
   useEffect(() => {
@@ -91,7 +82,7 @@ function ScannerContent() {
       const totalSoal = soalData ? soalData.length : 0;
       
       if (totalSoal > 0) {
-        const tebakanKolom = Math.ceil(totalSoal / 20); 
+        const tebakanKolom = Math.ceil(totalSoal / 18); 
         const tebakanSoalPerKolom = Math.ceil(totalSoal / tebakanKolom); 
         setSoalPerKolom(tebakanSoalPerKolom);
       }
@@ -138,7 +129,7 @@ function ScannerContent() {
           setKunciAsli(kunciArray);
           
           if (!showSelector) {
-            const cols = Math.ceil(kunciArray.length / 20);
+            const cols = Math.ceil(kunciArray.length / 18);
             setSoalPerKolom(Math.ceil(kunciArray.length / Math.max(cols, 1)));
           }
         } else {
@@ -182,7 +173,7 @@ function ScannerContent() {
     return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
   }, [showSelector]); 
 
-  // --- PEMETAAN LAYAR KE VIDEO PENGAMBILAN ---
+  // --- RUMUS PEMETAAN KOORDINAT PRESISI TINGGI (SUDAH DIPERBAIKI!) ---
   const getMappedCoordinates = () => {
     if (!videoRef.current || !boxRef.current) return null;
     const video = videoRef.current;
@@ -191,34 +182,31 @@ function ScannerContent() {
 
     if (video.videoWidth === 0) return null;
 
-    const videoRatio = video.videoWidth / video.videoHeight;
-    const screenRatio = vidRect.width / vidRect.height;
-    let scale, overflowX = 0, overflowY = 0;
-    
-    if (videoRatio > screenRatio) {
-      scale = video.videoHeight / vidRect.height;
-      const renderedWidth = video.videoWidth / scale;
-      overflowX = (renderedWidth - vidRect.width) / 2;
-    } else {
-      scale = video.videoWidth / vidRect.width;
-      const renderedHeight = video.videoHeight / scale;
-      overflowY = (renderedHeight - vidRect.height) / 2;
-    }
+    // Menghitung rasio sebenarnya untuk "object-cover"
+    const scaleX = vidRect.width / video.videoWidth;
+    const scaleY = vidRect.height / video.videoHeight;
+    const scale = Math.max(scaleX, scaleY); // Cover menggunakan rasio terbesar
+
+    const renderedW = video.videoWidth * scale;
+    const renderedH = video.videoHeight * scale;
+
+    const offsetX = (renderedW - vidRect.width) / 2;
+    const offsetY = (renderedH - vidRect.height) / 2;
 
     return {
-      startX: (box.left - vidRect.left + overflowX) * scale,
-      startY: (box.top - vidRect.top + overflowY) * scale,
-      boxWidth: box.width * scale,
-      boxHeight: box.height * scale
+      startX: (box.left - vidRect.left + offsetX) / scale,
+      startY: (box.top - vidRect.top + offsetY) / scale,
+      boxWidth: box.width / scale,
+      boxHeight: box.height / scale
     };
   };
 
-  // --- 2. DETEKSI PUSAT MASSA (SANGAT DILONGGARKAN) ---
+  // --- 2. DETEKSI KOTAK OTOMATIS ---
   const checkLJKInFrame = useCallback(() => {
-    if (!isDataReady || !canvasRef.current || !videoRef.current) return { isPerfect: false, matchCount: 0, corners: null };
+    if (!isDataReady || !canvasRef.current || !videoRef.current) return false;
     
     const coords = getMappedCoordinates();
-    if (!coords) return { isPerfect: false, matchCount: 0, corners: null };
+    if (!coords) return false;
     const { startX, startY, boxWidth, boxHeight } = coords;
 
     const canvas = canvasRef.current;
@@ -227,54 +215,46 @@ function ScannerContent() {
     canvas.height = videoRef.current.videoHeight;
     ctx?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-    const anchorSize = boxWidth * 0.25; 
+    const anchorSize = boxWidth * 0.15; 
     
-    const getAnchorCenter = (x: number, y: number, w: number, h: number) => {
+    // Mengecek apakah pojokan lebih gelap dari bagian tengah kertas
+    const getBrightness = (x: number, y: number, w: number, h: number) => {
       const safeX = Math.max(0, x); const safeY = Math.max(0, y);
       const safeW = Math.min(w, canvas.width - safeX); const safeH = Math.min(h, canvas.height - safeY);
-      if (safeW < 10 || safeH < 10) return null;
+      if (safeW < 10 || safeH < 10) return 255;
 
       const frame = ctx?.getImageData(safeX, safeY, safeW, safeH);
-      if (!frame) return null;
+      if (!frame) return 255;
       
-      let sumX = 0, sumY = 0, count = 0;
-      for (let py = 0; py < safeH; py++) {
-        for (let px = 0; px < safeW; px++) {
-          const idx = (py * safeW + px) * 4;
-          const b = (frame.data[idx]*0.299 + frame.data[idx+1]*0.587 + frame.data[idx+2]*0.114);
-          // SANGAT DILONGGARKAN (Dari 110 menjadi 160). Abu-abu layar laptop akan dihitung hitam!
-          if (b < 160) { 
-            sumX += (safeX + px);
-            sumY += (safeY + py);
-            count++;
-          }
-        }
+      let sum = 0;
+      for (let i = 0; i < frame.data.length; i += 4) {
+        sum += (frame.data[i]*0.299 + frame.data[i+1]*0.587 + frame.data[i+2]*0.114);
       }
-      
-      // SANGAT DILONGGARKAN (Cukup 2% area saja yang terdeteksi gelap, AI langsung menyetujui)
-      if (count > (safeW * safeH * 0.02)) {
-        return { x: sumX / count, y: sumY / count };
-      }
-      return null;
+      return sum / (frame.data.length / 4);
     };
 
-    const tl = getAnchorCenter(startX, startY, anchorSize, anchorSize);
-    const tr = getAnchorCenter(startX + boxWidth - anchorSize, startY, anchorSize, anchorSize);
-    const bl = getAnchorCenter(startX, startY + boxHeight - anchorSize, anchorSize, anchorSize);
-    const br = getAnchorCenter(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize, anchorSize);
+    const centerBright = getBrightness(startX + boxWidth*0.4, startY + boxHeight*0.4, boxWidth*0.2, boxHeight*0.2);
+    if (centerBright < 100) return false; // Terlalu gelap (bukan kertas)
 
-    const matches = [tl, tr, bl, br].filter(Boolean).length;
+    const tl = getBrightness(startX, startY, anchorSize, anchorSize);
+    const tr = getBrightness(startX + boxWidth - anchorSize, startY, anchorSize, anchorSize);
+    const bl = getBrightness(startX, startY + boxHeight - anchorSize, anchorSize, anchorSize);
+    const br = getBrightness(startX + boxWidth - anchorSize, startY + boxHeight - anchorSize, anchorSize, anchorSize);
 
-    if (matches === 4 && tl && tr && bl && br) {
-      setScanFeedback("Mengekstraksi Data...");
-      return { isPerfect: true, matchCount: 4, corners: { tl, tr, bl, br } };
-    } else if (matches > 0) {
-      setScanFeedback(`Sudut terbaca: ${matches}/4. Paskan...`);
+    // Asal pojokan lebih gelap 30 point dari kertas tengah, itu berarti ada kotak LJK
+    let matches = 0;
+    if (tl < centerBright - 30) matches++;
+    if (tr < centerBright - 30) matches++;
+    if (bl < centerBright - 30) matches++;
+    if (br < centerBright - 30) matches++;
+
+    if (matches === 4) {
+      setScanFeedback("Terkunci! Memotret otomatis...");
+      return true;
     } else {
-      setScanFeedback("Arahkan 4 kotak LJK ke bingkai");
+      setScanFeedback(matches > 0 ? `Pas ${matches}/4. Paskan bingkai...` : "Arahkan 4 sudut LJK ke bingkai");
+      return false;
     }
-
-    return { isPerfect: false, matchCount: matches, corners: null };
   }, [isDataReady]);
 
   // --- 3. LOOP OTOMATIS ---
@@ -282,54 +262,33 @@ function ScannerContent() {
     let interval: NodeJS.Timeout;
     if (scanState === 'searching' && isDataReady && !showSelector) {
       interval = setInterval(() => {
-        const { isPerfect, corners } = checkLJKInFrame();
-        if (isPerfect && corners) {
+        if (checkLJKInFrame()) {
           clearInterval(interval);
-          executeCapture(corners);
+          executeCapture(true);
         }
-      }, 400); 
+      }, 500); 
     }
     return () => clearInterval(interval);
   }, [scanState, isDataReady, showSelector, checkLJKInFrame]);
 
-  // FUNGSI JEPRET PAKSA
+  // FUNGSI JEPRET MANUAL
   const handleManualCapture = () => {
     if (kunciAsli.length === 0) return alert("Sistem belum siap.");
-    const { corners } = checkLJKInFrame();
-    
-    let finalCorners = corners;
-    if (!finalCorners) {
-        const c = getMappedCoordinates();
-        if(c) {
-           finalCorners = {
-             tl: { x: c.startX, y: c.startY },
-             tr: { x: c.startX + c.boxWidth, y: c.startY },
-             bl: { x: c.startX, y: c.startY + c.boxHeight },
-             br: { x: c.startX + c.boxWidth, y: c.startY + c.boxHeight }
-           }
-        }
-    }
-
-    if(finalCorners) executeCapture(finalCorners);
+    executeCapture(true);
   };
 
-  const executeCapture = (corners: Corners) => {
+  const executeCapture = (isValid: boolean) => {
     setScanState('locked');
-    lastCorners.current = corners;
-    setTimeout(() => { processOMR(corners); }, 300);
+    setTimeout(() => { processOMR(isValid); }, 300);
   };
 
-  // --- 4. MESIN OMR (PERSPEKTIF + LAYOUT DINAMIS) ---
-  const processOMR = (corners: Corners) => {
+  // --- 4. MESIN OMR (CROP & KOREKSI PRESISI) ---
+  const processOMR = (isValid: boolean) => {
     if (!videoRef.current) return;
 
-    const minX = Math.min(corners.tl.x, corners.bl.x);
-    const maxX = Math.max(corners.tr.x, corners.br.x);
-    const minY = Math.min(corners.tl.y, corners.tr.y);
-    const maxY = Math.max(corners.bl.y, corners.br.y);
-    
-    const cropW = maxX - minX;
-    const cropH = maxY - minY;
+    const coords = getMappedCoordinates();
+    if (!coords) return;
+    const { startX, startY, boxWidth: cropW, boxHeight: cropH } = coords;
 
     const cropCanvas = document.createElement('canvas');
     cropCanvas.width = cropW;
@@ -337,24 +296,10 @@ function ScannerContent() {
     const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
     if (!cropCtx) return;
 
-    cropCtx.drawImage(videoRef.current, minX, minY, cropW, cropH, 0, 0, cropW, cropH);
+    // FOTO HANYA BAGIAN DALAM BINGKAI LJK SAJA (SUPER PRESISI!)
+    cropCtx.drawImage(videoRef.current, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
 
-    const cTL = { x: corners.tl.x - minX, y: corners.tl.y - minY };
-    const cTR = { x: corners.tr.x - minX, y: corners.tr.y - minY };
-    const cBL = { x: corners.bl.x - minX, y: corners.bl.y - minY };
-    const cBR = { x: corners.br.x - minX, y: corners.br.y - minY };
-
-    const getMappedPoint = (u: number, v: number) => {
-        const topX = cTL.x + u * (cTR.x - cTL.x);
-        const topY = cTL.y + u * (cTR.y - cTL.y);
-        const botX = cBL.x + u * (cBR.x - cBL.x);
-        const botY = cBL.y + u * (cBR.y - cBL.y);
-        return {
-            x: topX + v * (botX - topX),
-            y: topY + v * (botY - topY)
-        };
-    };
-
+    // KITA HILANGKAN PERSPEKTIF, KARENA JIKA USER MEM-PASKAN BINGKAI, GAMBAR SUDAH LURUS!
     const isBubbleFilled = (cx: number, cy: number, radius: number) => {
       const safeX = Math.max(0, cx - radius); const safeY = Math.max(0, cy - radius);
       const safeW = Math.min(radius * 2, cropW - safeX); const safeH = Math.min(radius * 2, cropH - safeY);
@@ -364,46 +309,56 @@ function ScannerContent() {
       let dark = 0;
       for (let i = 0; i < frame.data.length; i += 4) {
         const b = (frame.data[i] * 0.299) + (frame.data[i+1] * 0.587) + (frame.data[i+2] * 0.114);
-        if (b < 130) dark++; 
+        if (b < 120) dark++; 
       }
-      return (dark / (frame.data.length / 4)) > 0.40; 
+      return (dark / (frame.data.length / 4)) > 0.30; // Minimal 30% terisi
     };
 
-    // 1. MENDETEKSI ARSIRAN NIS DINAMIS
+    // ==========================================
+    // 1. MENDETEKSI ARSIRAN NIS (Kanan Atas LJK)
+    // ==========================================
     const nisCols = nisDigit || 6; 
-    const nisRows = 10;
-    const nStartU = 0.68; const nStartV = 0.15;
-    const nStepU = 0.035; const nStepV = 0.024;
+    const nisRows = 10; // Angka 0-9
+    
+    // Nilai ini dihitung berdasarkan proporsi pada gambar LJK Ustadz
+    const nStartX = cropW * 0.74;  
+    const nStartY = cropH * 0.36;  
+    const nStepX = cropW * 0.038;  
+    const nStepY = cropH * 0.024;  
     const nRadius = cropW * 0.015;
 
     let detectedNis = "";
     for (let c = 0; c < nisCols; c++) {
       let maxDark = 0; let bestRow = -1;
       for (let r = 0; r < nisRows; r++) {
-        const pt = getMappedPoint(nStartU + (c * nStepU), nStartV + (r * nStepV));
-        const frame = cropCtx.getImageData(pt.x - nRadius, pt.y - nRadius, nRadius*2, nRadius*2);
+        const cx = nStartX + (c * nStepX);
+        const cy = nStartY + (r * nStepY);
+        
+        const frame = cropCtx.getImageData(cx - nRadius, cy - nRadius, nRadius*2, nRadius*2);
         let darkCount = 0;
         for (let i=0; i<frame.data.length; i+=4) {
            const b = (frame.data[i]*0.299) + (frame.data[i+1]*0.587) + (frame.data[i+2]*0.114);
-           if (b < 130) darkCount++;
+           if (b < 120) darkCount++;
         }
         const darkRatio = darkCount / (frame.data.length/4);
-        if (darkRatio > maxDark && darkRatio > 0.3) { maxDark = darkRatio; bestRow = r; }
+        if (darkRatio > maxDark && darkRatio > 0.15) { maxDark = darkRatio; bestRow = r; }
       }
       detectedNis += bestRow !== -1 ? bestRow.toString() : "?";
     }
 
-    // 2. MENDETEKSI JAWABAN DINAMIS
+    // ==========================================
+    // 2. MENDETEKSI JAWABAN SOAL
+    // ==========================================
     let benar = 0, salah = 0, kosong = 0;
     const detail = [];
     const opsi = ['A', 'B', 'C', 'D']; 
 
-    const numCols = Math.ceil(kunciAsli.length / Math.max(soalPerKolom, 1)) || 1;
-    const qColStepU = 0.85 / Math.max(numCols, 1); 
-    const qOptStepU = 0.040; 
-    const qStepV = 0.025; 
-    const qStartU = 0.15; 
-    const qStartV = 0.52; 
+    // Koordinat berdasarkan gambar LJK Ustadz
+    const qCol1X = cropW * 0.22; // Mulai Kolom 1
+    const qCol2X = cropW * 0.61; // Mulai Kolom 2
+    const qStartY = cropH * 0.65; // Baris Nomor 1
+    const qStepX = cropW * 0.048; // Jarak opsi A ke B
+    const qStepY = cropH * 0.021; // Jarak soal 1 ke soal 2
     const qRadius = cropW * 0.018;
 
     for (let i = 0; i < kunciAsli.length; i++) {
@@ -412,14 +367,15 @@ function ScannerContent() {
       const col = Math.floor(i / soalPerKolom);
       const row = i % soalPerKolom;
       
-      const baseU = qStartU + (col * qColStepU);
-      const baseV = qStartV + (row * qStepV);
+      // Pilih kolom 1 atau kolom 2
+      const baseX = col === 0 ? qCol1X : qCol2X;
+      const baseY = qStartY + (row * qStepY);
 
       let jawab = '-'; let jmlTerisi = 0;
 
       for (let j = 0; j < opsi.length; j++) {
-         const pt = getMappedPoint(baseU + (j * qOptStepU), baseV);
-         if (isBubbleFilled(pt.x, pt.y, qRadius)) { jawab = opsi[j]; jmlTerisi++; }
+         const cx = baseX + (j * qStepX);
+         if (isBubbleFilled(cx, baseY, qRadius)) { jawab = opsi[j]; jmlTerisi++; }
       }
 
       let status = 'salah';
@@ -430,28 +386,27 @@ function ScannerContent() {
 
       detail.push({ no: i + 1, jawab, kunci, status });
 
+      // GAMBAR LINGKARAN OVERLAY
       const idx = opsi.indexOf(jawab);
       const kIdx = opsi.indexOf(kunci);
       
       cropCtx.lineWidth = 4;
       if (status === 'benar') {
-        const pt = getMappedPoint(baseU + (idx * qOptStepU), baseV);
-        cropCtx.strokeStyle = '#22c55e'; 
-        cropCtx.beginPath(); cropCtx.arc(pt.x, pt.y, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
+        cropCtx.strokeStyle = '#22c55e'; // Hijau
+        cropCtx.beginPath(); cropCtx.arc(baseX + (idx * qStepX), baseY, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
       } else {
         if (idx !== -1) {
-          const pt = getMappedPoint(baseU + (idx * qOptStepU), baseV);
-          cropCtx.strokeStyle = '#ef4444'; 
-          cropCtx.beginPath(); cropCtx.arc(pt.x, pt.y, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
+          cropCtx.strokeStyle = '#ef4444'; // Merah
+          cropCtx.beginPath(); cropCtx.arc(baseX + (idx * qStepX), baseY, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
         }
         if (kIdx !== -1) {
-          const pt = getMappedPoint(baseU + (kIdx * qOptStepU), baseV);
-          cropCtx.strokeStyle = '#eab308'; 
-          cropCtx.beginPath(); cropCtx.arc(pt.x, pt.y, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
+          cropCtx.strokeStyle = '#eab308'; // Kuning
+          cropCtx.beginPath(); cropCtx.arc(baseX + (kIdx * qStepX), baseY, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
         }
       }
     }
 
+    // TAMPILKAN HASILNYA
     setCapturedImage(cropCanvas.toDataURL('image/jpeg', 0.9));
     const nilai = kunciAsli.length > 0 ? Math.round((benar / kunciAsli.length) * 100) : 0;
 
