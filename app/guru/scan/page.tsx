@@ -18,9 +18,8 @@ type ResultTab = 'ringkasan' | 'detail';
 interface HasilKoreksi {
   error?: string; 
   namaUjianTerdeteksi?: string;
-  nama?: string;
-  nis?: string;
-  kelas?: string;
+  nisTerbaca?: string;
+  santriId?: string;
   nilai?: number;
   benar?: number;
   salah?: number;
@@ -38,7 +37,7 @@ function ScannerContent() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const boxRef = useRef<HTMLDivElement>(null); // BINGKAI PANDUAN VISUAL KITA
+  const boxRef = useRef<HTMLDivElement>(null); 
   
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanState, setScanState] = useState<ScanState>('searching');
@@ -47,20 +46,23 @@ function ScannerContent() {
   const [realScanResult, setRealScanResult] = useState<HasilKoreksi | null>(null);
   const [scanFeedback, setScanFeedback] = useState<string>("Menyiapkan sistem...");
 
-  // STATE UNTUK ALUR BARU (POP-UP PILIH UJIAN)
+  // STATE ALUR
   const [activeUjianId, setActiveUjianId] = useState<string | null>(urlUjianId);
   const [activeNamaUjian, setActiveNamaUjian] = useState<string>(urlNamaUjian || "Scanner OMR");
   const [showSelector, setShowSelector] = useState<boolean>(!urlUjianId);
   const [listUjianDB, setListUjianDB] = useState<any[]>([]);
   const [tempSelectedId, setTempSelectedId] = useState<string>("");
 
-  // STATE DATA REAL
+  // STATE DATA DB
   const [kunciAsli, setKunciAsli] = useState<string[]>([]);
   const [daftarSantri, setDaftarSantri] = useState<any[]>([]);
   const [isDataReady, setIsDataReady] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- 0A. AMBIL DAFTAR UJIAN JIKA BELUM ADA ID ---
+  // STATE UI PENCOCOKAN SANTRI
+  const [selectedSantriId, setSelectedSantriId] = useState<string>("");
+
+  // --- 0A. AMBIL DAFTAR UJIAN ---
   useEffect(() => {
     if (showSelector) {
       const fetchListUjian = async () => {
@@ -82,7 +84,7 @@ function ScannerContent() {
     }
   };
 
-  // --- 0B. AMBIL DATA KUNCI DAN SANTRI (PERBAIKAN ERROR DATABASE) ---
+  // --- 0B. AMBIL DATA KUNCI & SANTRI ---
   useEffect(() => {
     const loadDatabase = async () => {
       if (!activeUjianId) return;
@@ -90,27 +92,11 @@ function ScannerContent() {
       setIsDataReady(false);
       try {
         setScanFeedback("Memuat soal...");
-        
-        // KITA PECAH JADI 2 QUERY AGAR TIDAK ERROR RELASI
-        const { data: soalData, error: errSoal } = await supabase
-          .from('Soal')
-          .select('id')
-          .eq('ujian_id', activeUjianId)
-          .order('id', { ascending: true });
-
-        if (errSoal) throw new Error("Gagal ambil tabel Soal: " + errSoal.message);
+        const { data: soalData } = await supabase.from('Soal').select('id').eq('ujian_id', activeUjianId).order('id', { ascending: true });
 
         if (soalData && soalData.length > 0) {
           const soalIds = soalData.map(s => s.id);
-          
-          setScanFeedback("Memuat tabel Opsi...");
-          // Gunakan nama tabel Opsi sesuai yang ada di screenshot Ustadz
-          const { data: opsiData, error: errOpsi } = await supabase
-            .from('Opsi')
-            .select('soal_id, label, is_correct')
-            .in('soal_id', soalIds);
-
-          if (errOpsi) throw new Error("Gagal ambil tabel Opsi: " + errOpsi.message);
+          const { data: opsiData } = await supabase.from('Opsi').select('soal_id, label, is_correct').in('soal_id', soalIds);
 
           const kunciArray = [];
           for (const soal of soalData) {
@@ -120,18 +106,15 @@ function ScannerContent() {
           }
           setKunciAsli(kunciArray);
         } else {
-          alert("PERINGATAN: Soal belum dibuat di folder ujian ini! (Demo Mode Aktif)");
-          setKunciAsli(['A', 'B', 'C', 'D', 'A', 'B', 'C', 'D', 'A', 'B', 'C', 'D', 'A', 'B', 'C', 'D', 'A', 'B', 'C', 'D']);
+          setKunciAsli(Array(36).fill('A')); // Dummy 36 soal jika kosong
         }
 
-        setScanFeedback("Memuat daftar santri...");
         const { data: santriData } = await supabase.from('Santri').select('id, nama, nis, kelas');
         if (santriData) setDaftarSantri(santriData);
 
         setIsDataReady(true);
         setScanFeedback("Paskan 4 sudut LJK...");
       } catch (e: any) {
-        console.error("DB Error:", e);
         setScanFeedback("⚠️ Error: " + e.message);
       }
     };
@@ -146,7 +129,6 @@ function ScannerContent() {
       if (showSelector) return; 
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          // Resolusi diturunkan sedikit agar lebih ringan diolah
           video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
         });
         if (videoRef.current) videoRef.current.srcObject = stream;
@@ -159,7 +141,6 @@ function ScannerContent() {
     return () => { if (stream) stream.getTracks().forEach(track => track.stop()); };
   }, [showSelector]); 
 
-  // --- RUMUS PEMETAAN KOORDINAT PRESISI TINGGI ---
   const getMappedCoordinates = () => {
     if (!videoRef.current || !boxRef.current) return null;
     const video = videoRef.current;
@@ -170,7 +151,6 @@ function ScannerContent() {
 
     const videoRatio = video.videoWidth / video.videoHeight;
     const screenRatio = vidRect.width / vidRect.height;
-
     let scale, overflowX = 0, overflowY = 0;
     
     if (videoRatio > screenRatio) {
@@ -191,13 +171,12 @@ function ScannerContent() {
     };
   };
 
-  // --- 2. DETEKSI SUDUT (DENGAN PEMETAAN BARU) ---
+  // --- 2. DETEKSI KOTAK HITAM ---
   const checkLJKInFrame = useCallback(() => {
     if (!isDataReady || !canvasRef.current || !videoRef.current) return { isPerfect: false, matchCount: 0 };
     
     const coords = getMappedCoordinates();
     if (!coords) return { isPerfect: false, matchCount: 0 };
-
     const { startX, startY, boxWidth, boxHeight } = coords;
 
     const canvas = canvasRef.current;
@@ -206,22 +185,21 @@ function ScannerContent() {
     canvas.height = videoRef.current.videoHeight;
     ctx?.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
-    const anchorSize = boxWidth * 0.20; // 20% area pencarian sudut
+    const anchorSize = boxWidth * 0.20; 
     
     const isBullsEye = (x: number, y: number, size: number) => {
-      if (x < 0 || y < 0 || x + size > canvas.width || y + size > canvas.height) return false;
-      const frame = ctx?.getImageData(x, y, size, size);
+      const safeX = Math.max(0, x); const safeY = Math.max(0, y);
+      const safeW = Math.min(size, canvas.width - safeX); const safeH = Math.min(size, canvas.height - safeY);
+      if (safeW < 10 || safeH < 10) return false;
+
+      const frame = ctx?.getImageData(safeX, safeY, safeW, safeH);
       if (!frame) return false;
-      
       let dark = 0, light = 0;
       for (let i = 0; i < frame.data.length; i += 4) {
         const b = (frame.data[i] * 0.299) + (frame.data[i+1] * 0.587) + (frame.data[i+2] * 0.114);
-        if (b < 120) dark++;
-        else if (b > 150) light++;
+        if (b < 120) dark++; else if (b > 150) light++;
       }
-      
       const total = frame.data.length / 4;
-      // Ada elemen hitam murni dan kertas putih berdampingan
       return (dark / total > 0.05) && (light / total > 0.20); 
     };
 
@@ -244,7 +222,7 @@ function ScannerContent() {
     return { isPerfect: false, matchCount: matches };
   }, [isDataReady]);
 
-  // --- 3. LOOP OTOMATIS ---
+  // --- 3. LOOP OTOMATIS & MANUAL ---
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (scanState === 'searching' && isDataReady && !showSelector) {
@@ -259,14 +237,9 @@ function ScannerContent() {
     return () => clearInterval(interval);
   }, [scanState, isDataReady, showSelector, checkLJKInFrame]);
 
-  // FUNGSI JEPRET MANUAL (MEMAKSA PROSES)
   const handleManualCapture = () => {
-    if (kunciAsli.length === 0) {
-      alert("Sistem belum siap. Tunggu data dimuat.");
-      return;
-    }
+    if (kunciAsli.length === 0) return alert("Sistem belum siap.");
     setScanState('locked');
-    // Jika ditekan manual, paksa true! (Abaikan AI yang ragu-ragu)
     setTimeout(() => { processOMR(true); }, 200); 
   };
 
@@ -275,65 +248,97 @@ function ScannerContent() {
     setTimeout(() => { processOMR(isValid); }, 300);
   };
 
-  // --- 4. MESIN OMR (DENGAN KOORDINAT PRESISI) ---
+  // --- 4. MESIN OMR (CROP & KALIBRASI) ---
   const processOMR = (isValid: boolean) => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return;
-
-    canvasRef.current.width = videoRef.current.videoWidth;
-    canvasRef.current.height = videoRef.current.videoHeight;
-    ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-    
-    setCapturedImage(canvasRef.current.toDataURL('image/jpeg', 0.8));
-
-    if (!isValid) {
-      setRealScanResult({ error: "Gagal mendeteksi LJK. Cobalah pencet 'Jepret Manual' jika sudah pas bingkainya." });
-      setScanState('result');
-      return;
-    }
-
+    if (!videoRef.current) return;
     const coords = getMappedCoordinates();
     if (!coords) return;
+    const { startX, startY, boxWidth: W, boxHeight: H } = coords;
 
-    const { startX: sX, startY: sY, boxWidth: boxW, boxHeight: boxH } = coords;
+    // KITA BUAT CANVAS BARU KHUSUS UNTUK MENG-CROP GAMBAR LJK
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = W;
+    cropCanvas.height = H;
+    const cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+    if (!cropCtx) return;
 
-    let benar = 0, salah = 0, kosong = 0;
-    const detail = [];
-    const opsi = ['A', 'B', 'C', 'D']; // Sesuai LJK (A,B,C,D)
+    // FOTO HANYA BAGIAN LJK! (Bebas dari latar belakang)
+    cropCtx.drawImage(videoRef.current, startX, startY, W, H, 0, 0, W, H);
 
-    // FUNGSI BACA TINTA PENSIL
+    if (!isValid) {
+      setCapturedImage(cropCanvas.toDataURL('image/jpeg', 0.8));
+      setRealScanResult({ error: "Gagal mendeteksi pola. Pastikan pencahayaan cukup." });
+      setScanState('result'); return;
+    }
+
+    // FUNGSI CEK TINTA (PENSIL) PADA KOORDINAT CANVAS CROP
     const isBubbleFilled = (cx: number, cy: number, radius: number) => {
-      const frame = ctx.getImageData(cx - radius, cy - radius, radius * 2, radius * 2);
+      const safeX = Math.max(0, cx - radius); const safeY = Math.max(0, cy - radius);
+      const safeW = Math.min(radius * 2, W - safeX); const safeH = Math.min(radius * 2, H - safeY);
+      if (safeW <= 0 || safeH <= 0) return false;
+
+      const frame = cropCtx.getImageData(safeX, safeY, safeW, safeH);
       let dark = 0;
       for (let i = 0; i < frame.data.length; i += 4) {
         const b = (frame.data[i] * 0.299) + (frame.data[i+1] * 0.587) + (frame.data[i+2] * 0.114);
-        if (b < 110) dark++; // Pensil biasanya < 110
+        if (b < 120) dark++; 
       }
-      return (dark / (frame.data.length / 4)) > 0.35; // Minimal 35% terisi
+      return (dark / (frame.data.length / 4)) > 0.35; // Minimal 35% terisi tinta
     };
 
-    // MENGOREKSI SOAL
+    // 1. MENDETEKSI ARSIRAN NIS (6 Digit)
+    // Kalibrasi posisi kotak NIS berdasarkan desain LJK
+    const nisCols = 6;
+    const nisRows = 10;
+    const nStartX = W * 0.725; // X Mulai NIS
+    const nStartY = H * 0.148; // Y Mulai NIS
+    const nStepX = W * 0.038;  // Jarak antar kolom NIS
+    const nStepY = H * 0.021;  // Jarak antar baris (angka 0-9)
+    const nRadius = W * 0.015;
+
+    let detectedNis = "";
+    for (let c = 0; c < nisCols; c++) {
+      let maxDark = 0; let bestRow = -1;
+      for (let r = 0; r < nisRows; r++) {
+        const bX = nStartX + (c * nStepX); const bY = nStartY + (r * nStepY);
+        
+        // Cek ketebalan tinta
+        const frame = cropCtx.getImageData(bX - nRadius, bY - nRadius, nRadius*2, nRadius*2);
+        let darkCount = 0;
+        for (let i=0; i<frame.data.length; i+=4) {
+           const b = (frame.data[i]*0.299) + (frame.data[i+1]*0.587) + (frame.data[i+2]*0.114);
+           if (b < 120) darkCount++;
+        }
+        const darkRatio = darkCount / (frame.data.length/4);
+        if (darkRatio > maxDark && darkRatio > 0.25) { maxDark = darkRatio; bestRow = r; }
+      }
+      detectedNis += bestRow !== -1 ? bestRow.toString() : "?";
+    }
+
+    // 2. MENDETEKSI JAWABAN (36 Soal, 2 Kolom)
+    let benar = 0, salah = 0, kosong = 0;
+    const detail = [];
+    const opsi = ['A', 'B', 'C', 'D']; 
+
+    const qStartX1 = W * 0.22; // X Kolom 1 (Soal 1-18)
+    const qStartX2 = W * 0.62; // X Kolom 2 (Soal 19-36)
+    const qStartY  = H * 0.38; // Y Mulai Soal
+    const qStepX   = W * 0.045; // Jarak antar opsi ABCD
+    const qStepY   = H * 0.028; // Jarak antar nomor soal
+    const qRadius  = W * 0.018;
+
     for (let i = 0; i < kunciAsli.length; i++) {
       const kunci = kunciAsli[i] || '-';
       
-      // KALIBRASI POSISI BULATAN (Disesuaikan dengan LJK baru Ustadz)
-      const col = Math.floor(i / 18); // 18 soal per kolom (sesuai gambar: 1-18, 19-36)
-      const row = i % 18;
-      
-      const xPos = sX + (boxW * 0.23) + (col * (boxW * 0.35));
-      const yPos = sY + (boxH * 0.62) + (row * (boxH * 0.018));
-      const xStep = boxW * 0.045;
-      const radius = boxW * 0.018;
+      const isCol2 = i >= 18;
+      const row = isCol2 ? i - 18 : i;
+      const xPos = isCol2 ? qStartX2 : qStartX1;
+      const yPos = qStartY + (row * qStepY);
 
-      let jawab = '-';
-      let jmlTerisi = 0;
+      let jawab = '-'; let jmlTerisi = 0;
 
       for (let j = 0; j < opsi.length; j++) {
-         if (isBubbleFilled(xPos + (j * xStep), yPos, radius)) {
-            jawab = opsi[j];
-            jmlTerisi++;
-         }
+         if (isBubbleFilled(xPos + (j * qStepX), yPos, qRadius)) { jawab = opsi[j]; jmlTerisi++; }
       }
 
       let status = 'salah';
@@ -344,33 +349,42 @@ function ScannerContent() {
 
       detail.push({ no: i + 1, jawab, kunci, status });
 
-      // GAMBAR OVERLAY
+      // GAMBAR LINGKARAN OVERLAY (DI CANVAS CROP)
       const idx = opsi.indexOf(jawab);
       const kIdx = opsi.indexOf(kunci);
       
-      ctx.lineWidth = 4;
+      cropCtx.lineWidth = 4;
       if (status === 'benar') {
-        ctx.strokeStyle = '#22c55e'; // Hijau
-        ctx.beginPath(); ctx.arc(xPos + (idx * xStep), yPos, radius*1.5, 0, 2*Math.PI); ctx.stroke();
+        cropCtx.strokeStyle = '#22c55e'; // Hijau
+        cropCtx.beginPath(); cropCtx.arc(xPos + (idx * qStepX), yPos, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
       } else {
         if (idx !== -1) {
-          ctx.strokeStyle = '#ef4444'; // Merah
-          ctx.beginPath(); ctx.arc(xPos + (idx * xStep), yPos, radius*1.5, 0, 2*Math.PI); ctx.stroke();
+          cropCtx.strokeStyle = '#ef4444'; // Merah
+          cropCtx.beginPath(); cropCtx.arc(xPos + (idx * qStepX), yPos, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
         }
         if (kIdx !== -1) {
-          ctx.strokeStyle = '#eab308'; // Kuning
-          ctx.beginPath(); ctx.arc(xPos + (kIdx * xStep), yPos, radius*1.5, 0, 2*Math.PI); ctx.stroke();
+          cropCtx.strokeStyle = '#eab308'; // Kuning
+          cropCtx.beginPath(); cropCtx.arc(xPos + (kIdx * qStepX), yPos, qRadius*1.5, 0, 2*Math.PI); cropCtx.stroke();
         }
       }
     }
 
-    setCapturedImage(canvasRef.current.toDataURL('image/jpeg', 0.8));
+    // TAMPILKAN HASIL CROP + OVERLAY KE LAYAR
+    setCapturedImage(cropCanvas.toDataURL('image/jpeg', 0.9));
     const nilai = kunciAsli.length > 0 ? Math.round((benar / kunciAsli.length) * 100) : 0;
+
+    // AUTO SELECT SANTRI DARI NIS
+    let matchedId = "";
+    if (!detectedNis.includes("?")) {
+      const match = daftarSantri.find(s => s.nis === detectedNis);
+      if (match) matchedId = match.id;
+    }
+    setSelectedSantriId(matchedId);
 
     setRealScanResult({
       namaUjianTerdeteksi: activeNamaUjian,
-      nama: "",
-      nis: "-",
+      nisTerbaca: detectedNis,
+      santriId: matchedId,
       nilai, benar, salah, kosong,
       detailJawaban: detail
     });
@@ -386,7 +400,12 @@ function ScannerContent() {
   };
 
   const handleSimpanDanLanjut = () => {
+    if (!selectedSantriId) {
+      alert("Pilih nama santri terlebih dahulu sebelum menyimpan!");
+      return;
+    }
     setIsSaving(true);
+    // [LOGIKA SIMPAN KE SUPABASE DI SINI NANTI]
     setTimeout(() => {
       setIsSaving(false);
       reset();
@@ -397,7 +416,6 @@ function ScannerContent() {
     <div className="fixed inset-0 z-[999] bg-slate-900 flex flex-col items-center justify-center font-sans overflow-hidden">
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Kontainer Utama Kamera (Dibatasi lebarnya agar tidak raksasa di Laptop) */}
       <div className="relative w-full h-full max-w-md bg-black shadow-2xl flex flex-col overflow-hidden">
         
         {/* --- POP-UP PILIH UJIAN --- */}
@@ -443,7 +461,7 @@ function ScannerContent() {
           <div className="w-12"></div>
         </div>
 
-        {/* CAMERA VIEW (Object Cover aman karena pemetaannya sudah presisi) */}
+        {/* CAMERA VIEW */}
         {hasPermission === false ? (
           <div className="flex-1 flex items-center justify-center text-white p-10 text-center">
             <Warning size={48} className="text-red-500 mb-4" />
@@ -453,12 +471,11 @@ function ScannerContent() {
           <video ref={videoRef} autoPlay playsInline muted className="flex-1 object-cover" />
         )}
 
-        {/* BINGKAI SCAN VISUAL (Kotak Putih Panduan) */}
+        {/* BINGKAI SCAN VISUAL PANDUAN */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none mb-10">
           <div ref={boxRef} className={`relative w-[85%] aspect-[1/1.414] border-[1.5px] border-white/40 rounded-lg transition-all duration-300
               ${scanState === 'locked' ? 'scale-[1.02] border-green-500' : ''}`}>
              
-             {/* Target Pojok */}
              <div className="absolute top-2 left-2 w-8 h-8 border-t-4 border-l-4 border-white shadow-sm"></div>
              <div className="absolute top-2 right-2 w-8 h-8 border-t-4 border-r-4 border-white shadow-sm"></div>
              <div className="absolute bottom-2 left-2 w-8 h-8 border-b-4 border-l-4 border-white shadow-sm"></div>
@@ -475,9 +492,8 @@ function ScannerContent() {
               ${scanFeedback.includes('Terkunci') ? 'bg-green-600/90 border-green-400' : 'bg-black/70 border-white/20'}`}>
               {scanFeedback}
             </div>
-            {/* TOMBOL SAKTI: JEPRET MANUAL */}
             <button onClick={handleManualCapture} className="flex items-center gap-2 px-6 py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full font-black text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(37,99,235,0.4)] transition-all border-2 border-blue-400">
-              <Camera size={20} weight="fill" /> Jepret Manual
+              <Camera size={20} weight="fill" /> Jepret Paksa
             </button>
           </div>
         )}
@@ -510,10 +526,14 @@ function ScannerContent() {
                     {resultTab === 'ringkasan' ? (
                       <div className="space-y-3">
                         <div className="flex flex-col gap-1">
-                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nama Santri (Pilih Manual)</label>
-                           <select className="w-full p-2.5 bg-white border border-blue-200 text-blue-800 font-bold rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs">
-                              <option value="">-- Pilih Santri --</option>
-                              {daftarSantri.map(s => <option key={s.id} value={s.id}>{s.nama} ({s.kelas})</option>)}
+                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Nama Santri <span className="text-blue-500 lowercase">(NIS: {realScanResult.nisTerbaca})</span></label>
+                           <select 
+                             className={`w-full p-2.5 border font-bold rounded-lg outline-none text-xs ${selectedSantriId ? 'bg-green-50 border-green-400 text-green-800' : 'bg-amber-50 border-amber-400 text-amber-800'}`}
+                             value={selectedSantriId}
+                             onChange={(e) => setSelectedSantriId(e.target.value)}
+                           >
+                              <option value="">-- Pilih Manual Jika Salah Terbaca --</option>
+                              {daftarSantri.map(s => <option key={s.id} value={s.id}>{s.nama} ({s.nis})</option>)}
                            </select>
                         </div>
 
@@ -528,6 +548,7 @@ function ScannerContent() {
                           </div>
                         </div>
 
+                        {/* GAMBAR SEKARANG DICROP PERSIS LJK SAJA */}
                         <div className="relative w-full aspect-[1/1.414] bg-slate-800 rounded-xl overflow-hidden border border-slate-300 shadow-inner">
                           {capturedImage && <img src={capturedImage} alt="Scan" className="absolute inset-0 w-full h-full object-cover" />}
                         </div>
