@@ -70,7 +70,6 @@ function LJKGeneratorContent() {
             setJumlahSoal(data.soal.length);
             if (data.soal.length > 0 && data.soal[0].opsi) setJumlahPilihan(data.soal[0].opsi.length);
             
-            // --- KUNCI PERBAIKAN: BONGKAR DESAIN KERTAS ---
             if (data.struktur_kanvas_json) {
               try {
                 const str = typeof data.struktur_kanvas_json === 'string' ? JSON.parse(data.struktur_kanvas_json) : data.struktur_kanvas_json;
@@ -88,7 +87,6 @@ function LJKGeneratorContent() {
                 console.warn("Gagal membaca struktur kanvas reprint", e);
               }
             }
-
             setViewState('editor');
           }
         });
@@ -104,7 +102,7 @@ function LJKGeneratorContent() {
   const [jumlahSoal, setJumlahSoal] = useState(40);
   const [jumlahPilihan, setJumlahPilihan] = useState(4); 
   const [tipePilihan, setTipePilihan] = useState<"huruf" | "angka" | "bs">("huruf");
-  const [kolom, setKolom] = useState(3);
+  const [kolom, setKolom] = useState(2);
   const [poinRata, setPoinRata] = useState(2.5);
   const [useAnchor, setUseAnchor] = useState(true);
   const [modeIdentitas, setModeIdentitas] = useState<"nis" | "barcode">("nis");
@@ -114,21 +112,20 @@ function LJKGeneratorContent() {
   const [useEsai, setUseEsai] = useState(false);
   const [tinggiEsaiCM, setTinggiEsaiCM] = useState(8); 
 
-  // --- FUNGSI CUSTOM ---
   const toggleKelas = (kls: string) => {
     setKelasTujuan(prev => prev.includes(kls) ? prev.filter(k => k !== kls) : [...prev, kls]);
   };
 
   const handleSelectTemplate = (type: string) => {
-    if (type === 'PG_AD') { setJumlahSoal(40); setKolom(3); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("huruf"); } 
-    else if (type === 'BS') { setJumlahSoal(30); setKolom(3); setUseEsai(false); setJumlahPilihan(2); setTipePilihan("bs"); } 
-    else if (type === 'SKOR_14') { setJumlahSoal(30); setKolom(3); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("angka"); } 
+    if (type === 'PG_AD') { setJumlahSoal(40); setKolom(2); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("huruf"); } 
+    else if (type === 'BS') { setJumlahSoal(30); setKolom(2); setUseEsai(false); setJumlahPilihan(2); setTipePilihan("bs"); } 
+    else if (type === 'SKOR_14') { setJumlahSoal(30); setKolom(2); setUseEsai(false); setJumlahPilihan(4); setTipePilihan("angka"); } 
     setViewState('editor');
   };
 
   const handleSelectTemplateSekolah = (template: any) => {
     setJumlahSoal(template.jumlah_soal || 40);
-    setKolom(template.kolom || 3);
+    setKolom(template.kolom || 2);
 
     if (template.opsi === "A-D") { setJumlahPilihan(4); setTipePilihan("huruf"); }
     else if (template.opsi === "A-E") { setJumlahPilihan(5); setTipePilihan("huruf"); }
@@ -136,28 +133,20 @@ function LJKGeneratorContent() {
 
     if (template.struktur_kanvas_json) {
       try {
-        const str = typeof template.struktur_kanvas_json === 'string' 
-          ? JSON.parse(template.struktur_kanvas_json) 
-          : template.struktur_kanvas_json;
-        
+        const str = typeof template.struktur_kanvas_json === 'string' ? JSON.parse(template.struktur_kanvas_json) : template.struktur_kanvas_json;
         if (str.kop) setKopSurat(str.kop);
         if (str.judul) setNamaUjian(str.judul); 
         if (str.logo) setLogoUrl(str.logo);
         if (str.identitasList) setIdentitasList(str.identitasList);
-        
         if (str.useAnchor !== undefined) setUseAnchor(str.useAnchor);
         if (str.modeIdentitas) setModeIdentitas(str.modeIdentitas);
         if (str.jumlahDigitNIS) setJumlahDigitNIS(str.jumlahDigitNIS);
         if (str.useKodeUjian !== undefined) setUseKodeUjian(str.useKodeUjian);
         if (str.jumlahDigitKodeUjian) setJumlahDigitKodeUjian(str.jumlahDigitKodeUjian);
-        
         if (str.useEsai !== undefined) setUseEsai(str.useEsai);
         if (str.tinggiEsaiCM) setTinggiEsaiCM(str.tinggiEsaiCM);
-      } catch (error) {
-        console.error("Gagal membaca struktur_kanvas_json:", error);
-      }
+      } catch (error) { console.error("Gagal membaca struktur_kanvas_json:", error); }
     }
-    
     setViewState('editor');
   };
 
@@ -183,7 +172,6 @@ function LJKGeneratorContent() {
   };
   const hapusLogo = () => setLogoUrl(null);
 
-  // --- FUNGSI API ---
   const handleSimpanUjian = async () => {
     if (!namaUjian || kelasTujuan.length === 0) return alert("Nama Ujian dan minimal 1 Kelas Tujuan wajib diisi!");
     setIsSaving(true);
@@ -198,43 +186,29 @@ function LJKGeneratorContent() {
 
       const generatedToken = useKodeUjian ? Math.floor(Math.random() * Math.pow(10, jumlahDigitKodeUjian)).toString().padStart(jumlahDigitKodeUjian, '0') : `LJK-${Date.now().toString().slice(-4)}`;
 
-      // --- INI YANG BIKIN FORMAT KERTAS TERSIMPAN ---
       const payloadStruktur = {
-        kolom: kolom,
-        kop: kopSurat,
-        logo: logoUrl,
-        identitasList: identitasList,
-        useAnchor: useAnchor,
-        modeIdentitas: modeIdentitas,
-        jumlahDigitNIS: jumlahDigitNIS,
-        useKodeUjian: useKodeUjian,
-        jumlahDigitKodeUjian: jumlahDigitKodeUjian,
-        useEsai: useEsai,
-        tinggiEsaiCM: tinggiEsaiCM
+        kolom: kolom, kop: kopSurat, logo: logoUrl, identitasList: identitasList,
+        useAnchor: useAnchor, modeIdentitas: modeIdentitas, jumlahDigitNIS: jumlahDigitNIS,
+        useKodeUjian: useKodeUjian, jumlahDigitKodeUjian: jumlahDigitKodeUjian,
+        useEsai: useEsai, tinggiEsaiCM: tinggiEsaiCM
       };
 
       const response = await fetch('/api/exams/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: namaUjian,
-          className: kelasTujuan.join(", "),
-          teacherName: "Ustadz/Ustadzah", 
-          duration: 90,
-          token: generatedToken,
-          examType: "LJK", 
-          questions: questionsData,
-          struktur_kanvas_json: payloadStruktur
+          title: namaUjian, className: kelasTujuan.join(", "), teacherName: "Ustadz/Ustadzah", 
+          duration: 90, token: generatedToken, examType: "LJK", 
+          questions: questionsData, struktur_kanvas_json: payloadStruktur
         })
       });
 
       if (response.ok) {
-        alert(`Berhasil! Format LJK telah disinkronkan ke Arsip.\nKode Ujian: ${generatedToken}`);
+        alert(`Berhasil! Format LJK tersimpan.\nKode Ujian: ${generatedToken}`);
         router.push('/guru/arsip');
       } else {
         const errorData = await response.json(); alert(`Gagal menyimpan: ${errorData.message}`);
       }
-    } catch (error) { alert("Gagal terhubung ke server database."); } finally { setIsSaving(false); }
+    } catch (error) { alert("Gagal terhubung ke server."); } finally { setIsSaving(false); }
   };
 
   const handleExport = async (format: 'png' | 'pdf') => {
@@ -258,24 +232,44 @@ function LJKGeneratorContent() {
     return (index + 1).toString(); 
   };
 
-  const bubbleSize = jumlahPilihan > 8 ? 13 : jumlahPilihan > 5 ? 16 : 20;
-  const fontSize = jumlahPilihan > 8 ? 6 : jumlahPilihan > 5 ? 8 : 10;
-  const soalPerKolom = Math.ceil(jumlahSoal / kolom);
+  // =======================================================================
+  // ALGORITMA AUTO-SCALING BERDASARKAN JUMLAH KOLOM
+  // =======================================================================
+  let bubbleSize = 16;
+  let fontSize = 8;
+  let numberSize = "13px";
+  let gapX = "2.5mm"; // Jarak antar opsi (A ke B)
+  let gapY = "2mm";   // Jarak antar nomor soal (1 ke 2)
+  let timingHeight = "2mm"; // Tinggi kotak hitam panduan
 
-  const filteredRiwayat = riwayatUjian.filter(r => 
-    r.namaUjian.toLowerCase().includes(searchRiwayat.toLowerCase()) || 
-    r.kelas.toLowerCase().includes(searchRiwayat.toLowerCase())
-  );
+  if (kolom === 1) {
+    bubbleSize = 24; fontSize = 12; numberSize = "16px"; gapX = "6mm"; gapY = "4mm"; timingHeight = "4mm";
+  } else if (kolom === 2) {
+    bubbleSize = 20; fontSize = 10; numberSize = "14px"; gapX = "4mm"; gapY = "3mm"; timingHeight = "3mm";
+  } else if (kolom === 3) {
+    bubbleSize = 16; fontSize = 8; numberSize = "13px"; gapX = "2.5mm"; gapY = "2mm"; timingHeight = "2mm";
+  } else if (kolom === 4) {
+    bubbleSize = 13; fontSize = 6.5; numberSize = "11px"; gapX = "1.5mm"; gapY = "1.5mm"; timingHeight = "1.5mm";
+  } else {
+    // 5 Kolom ke atas
+    bubbleSize = 11; fontSize = 5.5; numberSize = "10px"; gapX = "1mm"; gapY = "1mm"; timingHeight = "1mm";
+  }
+
+  // Koreksi tambahan jika opsi ada banyak (A-E)
+  if (jumlahPilihan > 4 && kolom >= 3) {
+    bubbleSize -= 2;
+    fontSize -= 1;
+    gapX = "1mm";
+  }
+
+  const soalPerKolom = Math.ceil(jumlahSoal / Math.max(kolom, 1));
+
+  const filteredRiwayat = riwayatUjian.filter(r => r.namaUjian.toLowerCase().includes(searchRiwayat.toLowerCase()) || r.kelas.toLowerCase().includes(searchRiwayat.toLowerCase()));
   const displayedRiwayat = filteredRiwayat.slice(0, visibleRiwayatCount);
 
-  // =======================================================================
-  // RENDER VIEW 1: MENU PILIH TEMPLATE (CANGGIH & ELEGAN)
-  // =======================================================================
   if (viewState === 'select') {
     return (
       <div className="min-h-screen bg-slate-50 font-sans flex flex-col items-center relative overflow-x-hidden pt-8 px-6 pb-24">
-        
-        {/* Background Dekoratif */}
         <div className="absolute top-0 left-0 w-full h-[450px] lg:h-[500px] bg-gradient-to-br from-indigo-950 via-blue-900 to-indigo-800 rounded-b-[4rem] pointer-events-none shadow-2xl">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
           <div className="absolute top-10 left-10 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl"></div>
@@ -283,7 +277,6 @@ function LJKGeneratorContent() {
         </div>
 
         <div className="w-full max-w-[85rem] flex justify-between items-center relative z-10 mb-8 mt-2">
-          {/* TOMBOL KEMBALI MENGGUNAKAN ROUTER.BACK() */}
           <button onClick={() => router.back()} className="flex items-center gap-2 p-2.5 bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md rounded-2xl text-white transition-all cursor-pointer">
             <ArrowLeft size={20} weight="bold" /> <span className="text-xs font-bold uppercase tracking-widest hidden sm:block pr-2">Kembali</span>
           </button>
@@ -294,16 +287,11 @@ function LJKGeneratorContent() {
         </div>
 
         <div className="relative z-10 text-center mb-12">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-4 drop-shadow-lg">
-            Desain Lembar Ujian<br/><span className="text-blue-300">Super Presisi.</span>
-          </h1>
-          <p className="text-blue-100 font-medium max-w-2xl mx-auto text-sm lg:text-base leading-relaxed px-4">
-            Sistem LJK kami telah dioptimalkan secara matematis untuk menjamin akurasi pemindaian kamera hingga 99.9%. Mulai dengan memilih struktur di bawah ini.
-          </p>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight mb-4 drop-shadow-lg">Desain Lembar Ujian<br/><span className="text-blue-300">Super Presisi.</span></h1>
+          <p className="text-blue-100 font-medium max-w-2xl mx-auto text-sm lg:text-base leading-relaxed px-4">Sistem LJK kami telah dioptimalkan secara matematis untuk menjamin akurasi pemindaian kamera hingga 99.9%.</p>
         </div>
 
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-[85rem] w-full">
-          {/* Template Cards - Canggih */}
           <div onClick={() => handleSelectTemplate('PG_AD')} className="bg-white p-8 rounded-[2rem] shadow-xl flex flex-col items-center text-center hover:border-blue-400 hover:shadow-blue-500/20 border-2 border-transparent transition-all group cursor-pointer hover:-translate-y-2">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-blue-50 text-blue-600 rounded-[1.5rem] shadow-inner flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300"><FileText size={40} weight="fill" /></div>
             <h3 className="font-black text-slate-800 text-xl mb-3">Pilihan Ganda</h3>
@@ -333,10 +321,7 @@ function LJKGeneratorContent() {
             <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest bg-white px-4 py-2 rounded-full group-hover:bg-slate-300 transition-colors relative z-10">Bangun Sendiri</span>
           </div>
 
-          {/* Template Master Sekolah & Riwayat */}
           <div className="col-span-1 md:col-span-2 lg:col-span-4 grid grid-cols-1 lg:grid-cols-3 gap-8 mt-12">
-            
-            {/* Bagian Kiri: Template Resmi Sekolah */}
             {templateSekolah.length > 0 && (
               <div className="lg:col-span-1 bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col">
                 <h2 className="text-lg font-black text-slate-800 tracking-widest uppercase mb-6 flex items-center gap-2 border-b border-slate-100 pb-4"><Archive size={24} className="text-blue-600"/> Template Resmi Sekolah</h2>
@@ -348,18 +333,15 @@ function LJKGeneratorContent() {
                         <h3 className="font-black text-slate-800 text-sm leading-tight group-hover:text-blue-700">{tpl.nama_template}</h3>
                       </div>
                       <div className="text-right">
-  <p className="text-xs font-bold text-slate-500">{tpl.jumlah_soal} Soal</p>
-  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-    {tpl.opsi === 'A-D' ? '4 OPSI' : tpl.opsi === 'A-E' ? '5 OPSI' : tpl.opsi === 'B/S' ? '2 OPSI' : tpl.opsi}
-  </p>
-</div>
+                        <p className="text-xs font-bold text-slate-500">{tpl.jumlah_soal} Soal</p>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{tpl.opsi === 'A-D' ? '4 OPSI' : tpl.opsi === 'A-E' ? '5 OPSI' : tpl.opsi === 'B/S' ? '2 OPSI' : tpl.opsi}</p>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Bagian Kanan: Riwayat LJK */}
             <div className={`bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col ${templateSekolah.length > 0 ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 border-b border-slate-100 pb-4">
                 <h2 className="text-lg font-black text-slate-800 tracking-widest uppercase flex items-center gap-2">
@@ -367,11 +349,7 @@ function LJKGeneratorContent() {
                 </h2>
                 <div className="relative w-full md:w-72">
                   <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input 
-                    type="text" placeholder="Cari nama ujian atau kelas..." 
-                    value={searchRiwayat} onChange={(e) => { setSearchRiwayat(e.target.value); setVisibleRiwayatCount(10); }}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
-                  />
+                  <input type="text" placeholder="Cari nama ujian atau kelas..." value={searchRiwayat} onChange={(e) => { setSearchRiwayat(e.target.value); setVisibleRiwayatCount(10); }} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors" />
                 </div>
               </div>
 
@@ -408,7 +386,6 @@ function LJKGeneratorContent() {
                 </>
               )}
             </div>
-
           </div>
         </div>
       </div>
@@ -420,20 +397,10 @@ function LJKGeneratorContent() {
   // =======================================================================
   return (
     <div className="min-h-screen bg-slate-900 flex overflow-hidden font-sans">
-      
-      {/* PANEL KIRI: STUDIO CONTROLS (Lebih Rapi & Elegan) */}
       <div className="w-[420px] bg-white flex flex-col h-screen overflow-y-auto z-20 shadow-2xl scrollbar-hide shrink-0 relative">
-        
-        {/* Sticky Header Studio */}
         <div className="px-6 py-5 bg-white border-b border-slate-100 sticky top-0 z-20 flex justify-between items-center bg-opacity-90 backdrop-blur-md">
           <div className="flex items-center gap-3">
-            {/* TOMBOL KEMBALI MENGGUNAKAN LOGIKA REPRINTID */}
-            <button 
-              onClick={() => reprintId ? router.back() : setViewState('select')} 
-              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all cursor-pointer"
-            >
-              <ArrowLeft size={18} weight="bold" />
-            </button>
+            <button onClick={() => reprintId ? router.back() : setViewState('select')} className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-all cursor-pointer"><ArrowLeft size={18} weight="bold" /></button>
             <div>
               <h1 className="text-lg font-black tracking-tight text-slate-800 leading-none">LJK Studio</h1>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Editor Kertas Pintar</p>
@@ -441,14 +408,9 @@ function LJKGeneratorContent() {
           </div>
         </div>
 
-        {/* Form Controls */}
         <div className="p-6 space-y-6 flex-1">
-          
-          {/* Card 1: Header Kertas */}
           <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
             <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><TextAUnderline size={16} weight="bold"/> Header Kertas</label>
-            
-            {/* Upload Logo Modern */}
             <div>
               {logoUrl ? (
                 <div className="flex items-center gap-3 bg-white p-3 border border-slate-200 rounded-xl shadow-sm">
@@ -466,37 +428,26 @@ function LJKGeneratorContent() {
                 </label>
               )}
             </div>
-
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500">Teks Kop Surat</label>
               <textarea value={kopSurat} onChange={(e) => setKopSurat(e.target.value)} className="w-full p-3 text-xs font-bold border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none h-20 uppercase bg-white shadow-sm" placeholder="Teks Kop Surat" />
             </div>
-            
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500">Mata Pelajaran / Judul</label>
               <input type="text" value={namaUjian} onChange={(e) => setNamaUjian(e.target.value)} className="w-full p-3 text-xs font-bold border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent uppercase bg-white shadow-sm" />
             </div>
-
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-500 block">Kelas Tujuan (Bisa multi-kelas)</label>
-              {daftarKelas.length === 0 ? (
-                 <p className="text-xs text-slate-400 italic">Memuat daftar kelas...</p>
-              ) : (
+              {daftarKelas.length === 0 ? <p className="text-xs text-slate-400 italic">Memuat daftar kelas...</p> : (
                 <div className="flex flex-wrap gap-2">
                   {daftarKelas.map(kelas => (
-                    <button 
-                      key={kelas} onClick={() => toggleKelas(kelas)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${kelasTujuan.includes(kelas) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-300 text-slate-600 hover:border-indigo-400'}`}
-                    >
-                      {kelas}
-                    </button>
+                    <button key={kelas} onClick={() => toggleKelas(kelas)} className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${kelasTujuan.includes(kelas) ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-300 text-slate-600 hover:border-indigo-400'}`}>{kelas}</button>
                   ))}
                 </div>
               )}
             </div>
           </div>
 
-          {/* Card 2: Kolom Identitas Siswa */}
           <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><IdentificationBadge size={16} weight="bold"/> Identitas Siswa</label>
@@ -513,19 +464,16 @@ function LJKGeneratorContent() {
             </div>
           </div>
 
-          {/* Card 3: Struktur Soal */}
           <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
             <label className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2"><SlidersHorizontal size={16} weight="bold"/> Struktur Soal LJK</label>
-            
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500">Tipe Pilihan</label>
               <div className="flex gap-2">
                 <button onClick={() => {setTipePilihan('huruf'); setJumlahPilihan(4);}} className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${tipePilihan === 'huruf' && jumlahPilihan === 4 ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}>A - D</button>
                 <button onClick={() => {setTipePilihan('huruf'); setJumlahPilihan(5);}} className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${tipePilihan === 'huruf' && jumlahPilihan === 5 ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}>A - E</button>
-                <button onClick={() => {setTipePilihan('bs'); setJumlahPilihan(2);}} className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${tipePilihan === 'bs' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}>Benar/Salah</button>
+                <button onClick={() => {setTipePilihan('bs'); setJumlahPilihan(2);}} className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-all ${tipePilihan === 'bs' ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}>B / S</button>
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <span className="text-[10px] font-bold text-slate-500">Jumlah Soal</span>
@@ -538,14 +486,13 @@ function LJKGeneratorContent() {
             </div>
           </div>
 
-          {/* Card 4: Kamera & OMR Logic */}
           <div className="p-5 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-3 opacity-10"><Crosshair size={100} weight="fill" /></div>
-            <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest flex items-center gap-2 relative z-10"><Hash size={16} weight="bold"/> Mesin Pemindai (OMR)</label>
+            <label className="text-[10px] font-black text-emerald-700 uppercase tracking-widest flex items-center gap-2 relative z-10"><Hash size={16} weight="bold"/> Modul Keamanan Pemindaian</label>
             
             <div className="space-y-3 relative z-10">
               <label className="flex items-center justify-between p-3 bg-white border border-emerald-100 rounded-xl cursor-pointer shadow-sm hover:border-emerald-300 transition-colors">
-                <span className="text-xs font-bold text-slate-700">Garis Penanda Kamera (Anchor)</span>
+                <span className="text-xs font-bold text-slate-700">Gunakan Kotak Penanda (Anchor & Timing Marks)</span>
                 <input type="checkbox" checked={useAnchor} onChange={(e) => setUseAnchor(e.target.checked)} className="w-4 h-4 accent-emerald-600 cursor-pointer" />
               </label>
 
@@ -585,14 +532,11 @@ function LJKGeneratorContent() {
                   </div>
                 )}
               </div>
-
             </div>
           </div>
-          
-          <div className="pb-8"></div> {/* Spacer */}
+          <div className="pb-8"></div>
         </div>
 
-        {/* Sticky Footer: Action Buttons */}
         <div className="p-4 bg-white border-t border-slate-100 sticky bottom-0 z-20 space-y-3 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
           <button onClick={handleSimpanUjian} disabled={isSaving || !!reprintId} className="w-full flex items-center justify-center gap-2 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black transition-all shadow-lg hover:shadow-indigo-500/30 uppercase tracking-widest text-[11px] disabled:opacity-70 cursor-pointer">
             {isSaving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : !!reprintId ? "MODE CETAK ULANG" : <><FloppyDisk size={18} weight="bold" /> Simpan Struktur ke Database</>}
@@ -604,9 +548,8 @@ function LJKGeneratorContent() {
         </div>
       </div>
 
-      {/* PANEL KANAN: PRATINJAU KERTAS LJK (Canvas A4) */}
+      {/* PANEL KANAN: PRATINJAU KERTAS LJK */}
       <div className="flex-1 overflow-auto p-8 lg:p-12 flex justify-center scrollbar-hide relative bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]">
-        {/* Loading Overlay saat Export */}
         {isExporting && (
           <div className="absolute inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex flex-col items-center justify-center text-white">
             <div className="w-16 h-16 border-4 border-indigo-500 border-t-white rounded-full animate-spin mb-4"></div>
@@ -615,9 +558,7 @@ function LJKGeneratorContent() {
           </div>
         )}
 
-        {/* CONTAINER KERTAS A4 (Strict mm for OMR safety) */}
         <div className="relative shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-transform duration-500 hover:scale-[1.01]">
-          
           <div ref={ljkRef} className="box-border bg-white flex flex-col" style={{ width: "210mm", height: "297mm", paddingTop: "15mm", paddingBottom: "15mm", paddingLeft: "25mm", paddingRight: "25mm", color: "#000000" }}>
             
             <div className="absolute right-[6mm] top-0 bottom-0 flex items-center justify-center z-10 w-6">
@@ -628,13 +569,13 @@ function LJKGeneratorContent() {
             </div>
 
             {useAnchor && (
-  <>
-    <div className="absolute top-[10mm] left-[10mm] w-[16mm] h-[16mm] bg-black" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
-    <div className="absolute top-[10mm] right-[10mm] w-[16mm] h-[16mm] bg-black" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
-    <div className="absolute bottom-[10mm] left-[10mm] w-[16mm] h-[16mm] bg-black" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
-    <div className="absolute bottom-[10mm] right-[10mm] w-[16mm] h-[16mm] bg-black" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
-  </>
-)}
+              <>
+                <div className="absolute top-[10mm] left-[10mm] w-[14mm] h-[14mm] bg-black" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+                <div className="absolute top-[10mm] right-[10mm] w-[14mm] h-[14mm] bg-black" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+                <div className="absolute bottom-[10mm] left-[10mm] w-[14mm] h-[14mm] bg-black" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+                <div className="absolute bottom-[10mm] right-[10mm] w-[14mm] h-[14mm] bg-black" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+              </>
+            )}
 
             <div className="relative z-10 flex flex-col h-full pl-[5mm] pr-[5mm] pt-[2mm]">
               <div className="flex items-center gap-4 pb-3 mb-6 border-b-4 border-black shrink-0">
@@ -647,6 +588,14 @@ function LJKGeneratorContent() {
               </div>
 
               <div className="flex gap-6 mb-8 items-start shrink-0">
+                {useAnchor && (
+                    <div className="flex flex-col gap-[2mm] mr-[-10px] mt-2">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                           <div key={`id-tm-${i}`} className="w-[6mm] h-[2mm] bg-black" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+                        ))}
+                    </div>
+                )}
+                
                 <div className="flex-1 p-4 space-y-4 text-[11px] font-black uppercase border-2 border-black bg-white">
                   {identitasList.map((item) => {
                     const isSignature = item.label.toLowerCase().includes("tanda tangan") || item.label.toLowerCase().includes("ttd");
@@ -664,12 +613,12 @@ function LJKGeneratorContent() {
                     <p className="text-[9px] font-black mb-2 w-full text-center pb-1 border-b border-black">KODE UJIAN</p>
                     <div className="flex gap-1">
                       {Array.from({ length: jumlahDigitKodeUjian }).map((_, digitIndex) => (
-                        <div key={digitIndex} className="flex flex-col gap-0.5 items-center">
-                          <div className="w-3.5 h-3.5 mb-1 border-[1.5px] border-black rounded-full"></div>
+                        <div key={digitIndex} className="flex flex-col gap-[1.5mm] items-center">
+                          <div className="w-3 h-3 border-[1.5px] border-black rounded-full mb-0.5"></div>
                           {Array.from({ length: 10 }).map((_, num) => (
-                            <svg key={num} width="14" height="14" viewBox="0 0 14 14" style={{ display: "block" }}>
-                              <circle cx="7" cy="7" r="6" fill="none" stroke="#000000" strokeWidth="1" />
-                              <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize="7" fontWeight="900" fill="#000000" fontFamily="sans-serif">{num}</text>
+                            <svg key={num} width="12" height="12" viewBox="0 0 12 12" style={{ display: "block" }}>
+                              <circle cx="6" cy="6" r="5" fill="none" stroke="#000000" strokeWidth="1" />
+                              <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize="6" fontWeight="900" fill="#000000" fontFamily="sans-serif">{num}</text>
                             </svg>
                           ))}
                         </div>
@@ -679,16 +628,16 @@ function LJKGeneratorContent() {
                 )}
 
                 {modeIdentitas === "nis" ? (
-                  <div className="p-2 flex flex-col items-center border-2 border-black bg-white">
+                  <div className="p-2 flex flex-col items-center border-2 border-black bg-white relative">
                     <p className="text-[9px] font-black mb-2 w-full text-center pb-1 border-b border-black">ARSIRAN NIS</p>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 relative z-10">
                       {Array.from({ length: jumlahDigitNIS }).map((_, digitIndex) => (
-                        <div key={digitIndex} className="flex flex-col gap-0.5 items-center">
-                          <div className="w-3.5 h-3.5 mb-1 border-[1.5px] border-black rounded-full"></div>
+                        <div key={digitIndex} className="flex flex-col gap-[1.5mm] items-center">
+                          <div className="w-3 h-3 border-[1.5px] border-black rounded-full mb-0.5"></div>
                           {Array.from({ length: 10 }).map((_, num) => (
-                            <svg key={num} width="14" height="14" viewBox="0 0 14 14" style={{ display: "block" }}>
-                              <circle cx="7" cy="7" r="6" fill="none" stroke="#000000" strokeWidth="1" />
-                              <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize="7" fontWeight="900" fill="#000000" fontFamily="sans-serif">{num}</text>
+                            <svg key={num} width="12" height="12" viewBox="0 0 12 12" style={{ display: "block" }}>
+                              <circle cx="6" cy="6" r="5" fill="none" stroke="#000000" strokeWidth="1" />
+                              <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize="6" fontWeight="900" fill="#000000" fontFamily="sans-serif">{num}</text>
                             </svg>
                           ))}
                         </div>
@@ -704,32 +653,39 @@ function LJKGeneratorContent() {
                 )}
               </div>
 
-              <div className="flex justify-between shrink-0" style={{ gap: '20px' }}>
-  {Array.from({ length: kolom }).map((_, colIndex) => (
-    <div key={colIndex} className="flex-1 flex flex-col gap-y-2">
-      {Array.from({ length: soalPerKolom }).map((_, rowIndex) => {
-        const nomorSoal = rowIndex + 1 + (colIndex * soalPerKolom);
-        if (nomorSoal > jumlahSoal) return <div key={nomorSoal} className="py-0.5 opacity-0 h-[22px]"></div>;
+              <div className="flex justify-between shrink-0 relative" style={{ gap: '10px' }}>
+                
+                {useAnchor && (
+                    <div className="absolute left-[-5mm] top-0 bottom-0 flex flex-col" style={{ gap: gapY }}>
+                        {Array.from({ length: Math.ceil(jumlahSoal / Math.max(kolom, 1)) }).map((_, i) => (
+                           <div key={`tm-${i}`} className="w-[6mm] bg-black" style={{ height: timingHeight, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+                        ))}
+                    </div>
+                )}
 
-        return (
-          <div key={nomorSoal} className="flex items-start gap-2 py-0.5 border-b border-[#eeeeee]">
-            <span className="w-6 text-right font-black text-sm shrink-0 mt-[3px] leading-none">{nomorSoal}.</span>
-            <div className="flex gap-1.5">
-              {Array.from({ length: jumlahPilihan }).map((_, optIdx) => (
-                <svg key={optIdx} width={bubbleSize} height={bubbleSize} viewBox={`0 0 ${bubbleSize} ${bubbleSize}`} style={{ display: "block" }}>
-                  <circle cx={bubbleSize/2} cy={bubbleSize/2} r={(bubbleSize/2) - 1} fill="none" stroke="#000000" strokeWidth="1.5" />
-                  <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize={fontSize} fontWeight="900" fill="#000000" fontFamily="sans-serif">
-                    {getOptionLabel(optIdx)}
-                  </text>
-                </svg>
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  ))}
-</div>
+                {Array.from({ length: kolom }).map((_, colIndex) => (
+                  <div key={colIndex} className="flex-1 flex flex-col ml-[4mm]" style={{ gap: gapY }}>
+                    {Array.from({ length: soalPerKolom }).map((_, rowIndex) => {
+                      const nomorSoal = rowIndex + 1 + (colIndex * soalPerKolom);
+                      if (nomorSoal > jumlahSoal) return <div key={nomorSoal} className="opacity-0 h-[14px]"></div>;
+
+                      return (
+                        <div key={nomorSoal} className="flex items-center gap-2">
+                          <span className="w-5 text-right font-black shrink-0 leading-none" style={{ fontSize: numberSize }}>{nomorSoal}.</span>
+                          <div className="flex" style={{ gap: gapX }}>
+                            {Array.from({ length: jumlahPilihan }).map((_, optIdx) => (
+                              <svg key={optIdx} width={bubbleSize} height={bubbleSize} viewBox={`0 0 ${bubbleSize} ${bubbleSize}`} style={{ display: "block" }}>
+                                <circle cx={bubbleSize/2} cy={bubbleSize/2} r={(bubbleSize/2) - 1} fill="none" stroke="#000000" strokeWidth="1.5" />
+                                <text x="50%" y="50%" dy=".28em" textAnchor="middle" fontSize={fontSize} fontWeight="900" fill="#000000" fontFamily="sans-serif">{getOptionLabel(optIdx)}</text>
+                              </svg>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
 
               {useEsai && (
                 <div className="mt-8 w-full border-2 border-black p-4 flex flex-col shrink-0 bg-white relative" style={{ height: `${tinggiEsaiCM}cm` }}>
@@ -745,7 +701,6 @@ function LJKGeneratorContent() {
             <div className="mt-auto absolute bottom-[12mm] left-[25mm] right-[25mm] text-center pt-2 z-10 border-t border-[#cccccc]">
               <p className="text-[8px] font-black tracking-[0.4em] text-[#666666]">{teksFooter}</p>
             </div>
-
           </div>
         </div>
       </div>
